@@ -283,13 +283,13 @@ private fun TransactionRow(item: FinanceTransaction) {
 }
 
 @Composable
-private fun TransactionsPage(padding: PaddingValues, items: List<FinanceTransaction>) {
+private fun TransactionsPage(padding: PaddingValues, transactions: List<FinanceTransaction>) {
     Column(Modifier.fillMaxSize().padding(padding).background(midnight).padding(18.dp)) {
         Text("تراکنش‌ها", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
-        if (items.isEmpty()) Text("تراکنشی برای نمایش وجود ندارد.", color = muted)
+        if (transactions.isEmpty()) Text("تراکنشی برای نمایش وجود ندارد.", color = muted)
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items, key = { it.id }) { TransactionRow(it) }
+            items(transactions, key = { it.id }) { TransactionRow(it) }
         }
     }
 }
