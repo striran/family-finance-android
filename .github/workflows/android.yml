@@ -26,13 +26,18 @@ jobs:
           java-version: '17'
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Restore stable signing key for debug builds
+      - name: Decode debug signing keystore
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: |
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH"
           test -s "$ANDROID_KEYSTORE_PATH"
+      - name: Validate debug signing keystore and credentials
+        if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
+        run: |
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Run unit tests
         run: gradle --no-daemon testDebugUnitTest
@@ -75,13 +80,18 @@ jobs:
         run: |
           echo "## Signed release not produced" >> "$GITHUB_STEP_SUMMARY"
           echo "One or more Android signing secrets are missing. Configure all four repository secrets; never commit the keystore." >> "$GITHUB_STEP_SUMMARY"
-      - name: Restore release keystore
+      - name: Decode release signing keystore
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: |
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH"
           test -s "$ANDROID_KEYSTORE_PATH"
+      - name: Validate release signing keystore and credentials
+        if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
+        run: |
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Build signed release APK
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
