@@ -284,7 +284,31 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         item{Row(verticalAlignment=Alignment.CenterVertically){Text("هزینه بر اساس دسته",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onBudget){Text("بودجه جدید")}}}
         if(cats.isEmpty()) item{Text("هنوز هزینه‌ای ثبت نشده است.",color=sub)} else items(cats){(name,value)->GlassCard(dark=dark){Row{Text(name,color=fg);Spacer(Modifier.weight(1f));Text(money(value),color=pink,fontWeight=FontWeight.Bold)};LinearProgressIndicator(progress={if(expense>0)value.toFloat()/expense else 0f},modifier=Modifier.fillMaxWidth().padding(top=8.dp))}}
         item{Text("بودجه‌بندی ماهانه",color=fg,fontWeight=FontWeight.Bold)}
-        if(budgets.isEmpty()) item{Text("بودجه‌ای تعریف نشده است.",color=sub)} else items(budgets,key={it.id}){b->GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(b.category,color=fg,fontWeight=FontWeight.Bold);Text("مصرف‌شده: "+money(b.spent)+" از "+money(b.limitAmount),color=sub,fontSize=12.sp)};IconButton(onClick={onDeleteBudget(b)}){Icon(Icons.Default.Delete,null,tint=pink)}};LinearProgressIndicator(progress={(b.spent.toFloat()/b.limitAmount).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(top=8.dp),color=if(b.spent>b.limitAmount)pink else aqua)}}
+        if(budgets.isEmpty()) item{Text("بودجه‌ای تعریف نشده است.",color=sub)} else items(budgets,key={it.id}){b->
+            val usage = budgetUsagePercent(b.spent,b.limitAmount)
+            val overage = budgetOverage(b.spent,b.limitAmount)
+            val budgetColor = if(overage>0L) pink else if(usage>=80) Color(0xFFFFC56D) else aqua
+            GlassCard(dark=dark){
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Column(Modifier.weight(1f)){
+                        Text(b.category,color=fg,fontWeight=FontWeight.Bold)
+                        Text("مصرف‌شده: "+money(b.spent)+" از "+money(b.limitAmount),color=sub,fontSize=12.sp)
+                    }
+                    IconButton(onClick={onDeleteBudget(b)}){Icon(Icons.Default.Delete,null,tint=pink)}
+                }
+                Text(
+                    if(overage>0L) "هشدار: ${money(overage)} بیشتر از سقف بودجه"
+                    else "باقی‌مانده: ${money(budgetRemaining(b.spent,b.limitAmount))}",
+                    color=budgetColor,fontSize=12.sp,fontWeight=FontWeight.SemiBold
+                )
+                Text("میزان مصرف: $usage٪",color=budgetColor,fontSize=11.sp)
+                LinearProgressIndicator(
+                    progress={(usage/100f).coerceIn(0f,1f)},
+                    modifier=Modifier.fillMaxWidth().padding(top=8.dp),
+                    color=budgetColor
+                )
+            }
+        }
     }
 }
 @Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
