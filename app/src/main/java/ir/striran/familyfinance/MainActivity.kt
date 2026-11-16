@@ -195,10 +195,37 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val sub = if(dark) muted else Color(0xFF626B88)
     MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=Color(0xFFC4BDFF),secondary=aqua,background=midnight,surface=panel) else lightColorScheme(primary=violet,secondary=Color(0xFF168F8A))) {
         Scaffold(containerColor=bg, bottomBar={
-            NavigationBar(modifier=Modifier.padding(horizontal=12.dp, vertical=7.dp).clip(RoundedCornerShape(26.dp)).border(1.dp,if(dark)Color.White.copy(alpha=.16f) else Color(0xFFDDE2F3),RoundedCornerShape(26.dp)),containerColor=if(dark) Color(0xFF273252).copy(alpha=.94f) else Color.White.copy(alpha=.96f),tonalElevation=0.dp) {
-                val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط")
-                val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable)
-                labels.forEachIndexed { i,label -> NavigationBarItem(selected=page==i,onClick={page=i},icon={Icon(icons[i],null)},label={Text(label,fontSize=10.sp)}) }
+            Surface(
+                modifier=Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=9.dp,top=5.dp)
+                    .shadow(18.dp,RoundedCornerShape(28.dp))
+                    .border(1.dp,if(dark)Color.White.copy(alpha=.22f) else Color.White.copy(alpha=.95f),RoundedCornerShape(28.dp)),
+                shape=RoundedCornerShape(28.dp),
+                color=if(dark) Color(0xFF29375B).copy(alpha=.88f) else Color.White.copy(alpha=.88f),
+                tonalElevation=0.dp
+            ) {
+                NavigationBar(
+                    containerColor=Color.Transparent,
+                    tonalElevation=0.dp,
+                    windowInsets=WindowInsets(0,0,0,0),
+                    modifier=Modifier.height(72.dp)
+                ) {
+                    val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط")
+                    val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable)
+                    labels.forEachIndexed { i,label ->
+                        NavigationBarItem(
+                            selected=page==i,onClick={page=i},
+                            icon={Icon(icons[i],null,modifier=Modifier.size(if(page==i)25.dp else 22.dp))},
+                            label={Text(label,fontSize=9.sp,fontWeight=if(page==i)FontWeight.Bold else FontWeight.Normal)},
+                            colors=NavigationBarItemDefaults.colors(
+                                selectedIconColor=if(dark)Color.White else violet,
+                                selectedTextColor=if(dark)Color.White else violet,
+                                unselectedIconColor=if(dark)Color(0xFFB7C4E5) else Color(0xFF7C849D),
+                                unselectedTextColor=if(dark)Color(0xFFB7C4E5) else Color(0xFF7C849D),
+                                indicatorColor=if(dark)Color(0xFF8B80FF).copy(alpha=.30f) else Color(0xFF8B80FF).copy(alpha=.13f)
+                            )
+                        )
+                    }
+                }
             }
         }, floatingActionButton={ if(page==0||page==1||page==5) FloatingActionButton(onClick={dialog=if(page==5)"debt" else "transaction"},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
             when(page) {
@@ -351,6 +378,17 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 @Composable private fun TxRow(t:FinanceTransaction,fg:Color,sub:Color,dark:Boolean,onEdit:(()->Unit)?=null,onDelete:(()->Unit)?=null){
     GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Surface(shape=RoundedCornerShape(13.dp),color=(if(t.type=="درآمد") aqua else pink).copy(alpha=.15f)){Icon(if(t.type=="درآمد") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,null,tint=if(t.type=="درآمد") aqua else pink,modifier=Modifier.padding(10.dp))};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(t.category,color=fg,fontWeight=FontWeight.SemiBold);Text("${t.memberName} · ${t.accountName} · ${jalali(t.createdAt)}",color=sub,fontSize=10.sp);if(t.note.isNotBlank())Text(t.note,color=sub,fontSize=11.sp)};Text((if(t.type=="درآمد") "+" else "−")+money(t.amount),color=if(t.type=="درآمد") aqua else pink,fontSize=11.sp,fontWeight=FontWeight.Bold)};if(onEdit!=null&&onDelete!=null){if(t.category=="انتقال وجه"||t.category=="دریافت انتقال"){Text("برای حفظ تراز حساب‌ها، ویرایش و حذف انتقال غیرفعال است.",color=sub,fontSize=10.sp)}else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){TextButton(onClick=onEdit){Text("ویرایش")};TextButton(onClick=onDelete){Text("حذف",color=pink)}}}}
 }
+@Composable private fun ScreenHeading(title:String,subtitle:String,fg:Color,sub:Color,dark:Boolean){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
+            Text(title,color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)
+            Text(subtitle,color=sub,fontSize=11.sp)
+        }
+        Surface(shape=RoundedCornerShape(14.dp),color=if(dark)Color.White.copy(alpha=.09f) else violet.copy(alpha=.09f),border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.13f) else violet.copy(alpha=.12f))){
+            Text("FAMILY",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),color=if(dark)Color(0xFFD4CEFF) else violet,fontSize=9.sp,fontWeight=FontWeight.Bold)
+        }
+    }
+}
 @Composable private fun TransactionsPage(p:PaddingValues,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onEdit:(FinanceTransaction)->Unit,onDelete:(FinanceTransaction)->Unit){
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("همه") }
@@ -360,7 +398,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         matchesQuery && matchesType
     }
     Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp)){
-        Text("تراکنش‌ها",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)
+        ScreenHeading("تراکنش‌ها","جست‌وجو و مدیریت گردش مالی",fg,sub,dark)
         Spacer(Modifier.height(10.dp))
         GlassCard(dark=dark) {
             OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جست‌وجوی عنوان، حساب یا مبلغ")},leadingIcon={Icon(Icons.Default.Search,null)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text),colors=OutlinedTextFieldDefaults.colors(
@@ -384,7 +422,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(horizontal=16.dp),contentPadding=PaddingValues(top=16.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
-        item { Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+        item { ScreenHeading("حساب‌های خانواده","مدیریت موجودی و حساب اعضا",fg,sub,dark) }
         item { GlassCard(dark=dark) {
             Text("مدیریت حساب‌ها",color=fg,fontWeight=FontWeight.Bold)
             Text("برای هر عضو می‌توانید چند حساب مستقل داشته باشید.",color=sub,fontSize=12.sp)
@@ -407,7 +445,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-        item{Text("گزارش مالی ماه",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
+        item{ScreenHeading("گزارش مالی","نمای کلی درآمد، هزینه و بودجه",fg,sub,dark)}
         item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
         item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
         item{GlassCard(dark=dark){Text("مانده خالص",color=sub);Text(money(income-expense),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}}
@@ -443,7 +481,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 @Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-        item{Text("امکانات بیشتر",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
+        item{ScreenHeading("امکانات بیشتر","تنظیمات و ابزارهای مدیریت خانواده",fg,sub,dark)}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
         item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
         item{Row(verticalAlignment=Alignment.CenterVertically){Text("اهداف پس‌انداز",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onGoal){Text("هدف جدید")}}}
@@ -468,7 +506,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         contentPadding=PaddingValues(top=18.dp,bottom=28.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("مدیریت بدهی‌ها و اقساط",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold) }
+        item { ScreenHeading("بدهی‌ها و اقساط","سررسیدها، پرداخت‌ها و مطالبات",fg,sub,dark) }
         item { Text("پرداخت هر قسط از حساب انتخابی ثبت می‌شود و موجودی و گزارش هزینه‌ها به‌روزرسانی خواهد شد.",color=sub,fontSize=12.sp) }
         item { Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { MetricCard("مانده اقساط",totalDebt,pink,sub,dark,Modifier.weight(1f)); MetricCard("طلب‌های دریافت‌نشده",totalReceivables,aqua,sub,dark,Modifier.weight(1f)) } }
         item { GlassCard(dark=dark) { Text("وضعیت سررسیدها",color=fg,fontWeight=FontWeight.Bold); Text("عقب‌افتاده: ${overdue.size} قسط",color=if(overdue.isEmpty())aqua else pink,fontWeight=FontWeight.SemiBold); Text("سررسید تا ۷ روز آینده: ${upcoming.size} قسط",color=if(upcoming.isEmpty())sub else Color(0xFFFFC56D)); if(overdue.isNotEmpty()) Text("مجموع اقساط عقب‌افتاده: ${money(overdue.sumOf{it.amount})}",color=pink,fontSize=12.sp); if(upcoming.isNotEmpty()) Text("مجموع اقساط نزدیک سررسید: ${money(upcoming.sumOf{it.amount})}",color=sub,fontSize=12.sp) } }
