@@ -113,4 +113,56 @@ class FinanceDatabaseTest {
         assertTrue(db.allTransactions().any { it.id == expense.id })
     }
 
+    @Test fun debtCreationSplitsTotalAcrossInstallmentsAndPreservesRemainder() {
+        val firstDue = java.util.Calendar.getInstance().apply {
+            set(2027, java.util.Calendar.JANUARY, 31, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        assertTrue(db.addDebt("وام خانه", 1_000L, 3, firstDue, "بانک"))
+        val debt = db.debts().single()
+        val installments = db.debtInstallments(debt.id)
+        assertEquals(3, installments.size)
+        assertEquals(1_000L, installments.sumOf { it.amount })
+        assertEquals(listOf(333L,333L,334L), installments.map { it.amount })
+        assertEquals(31, java.util.Calendar.getInstance().apply { timeInMillis=installments[0].dueAt }.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(28, java.util.Calendar.getInstance().apply { timeInMillis=installments[1].dueAt }.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(1_000L, debt.remainingAmount)
+        assertEquals(0, debt.paidInstallments)
+    }
+
+    @Test fun payingDebtInstallmentDeductsAccountAndCreatesExpenseAtomically() {
+        val account=db.accounts().first()
+        assertTrue(db.addTransaction(account.id,"درآمد","حقوق",2_000L,""))
+        assertTrue(db.addDebt("قسط خودرو",1_000L,2,System.currentTimeMillis(),""))
+        val debt=db.debts().single()
+        val first=db.debtInstallments(debt.id).first()
+        assertTrue(db.payDebtInstallment(first.id,account.id))
+        assertEquals(1_500L,db.accounts().first{it.id==account.id}.balance)
+        assertEquals(500L,db.debts().single().paidAmount)
+        assertEquals(500L,db.debts().single().remainingAmount)
+        assertEquals(1,db.debts().single().paidInstallments)
+        assertEquals("قسط بدهی",db.allTransactions().first().category)
+        assertFalse(db.payDebtInstallment(first.id,account.id))
+        assertFalse(db.deleteDebt(debt.id))
+    }
+
+    @Test fun debtPaymentFailsWithoutEnoughBalanceAndLeavesInstallmentUnpaid() {
+        val account=db.accounts().first()
+        assertTrue(db.addDebt("قرض",500L,1,System.currentTimeMillis(),""))
+        val installment=db.debtInstallments(db.debts().single().id).single()
+        assertFalse(db.payDebtInstallment(installment.id,account.id))
+        assertNull(db.debtInstallments(db.debts().single().id).single().paidAt)
+        assertEquals(0L,db.accounts().first{it.id==account.id}.balance)
+        assertTrue(db.deleteDebt(db.debts().single().id))
+    }
+
+    @Test fun debtValidationRejectsInvalidInstallmentCountAndAmount() {
+        val due=System.currentTimeMillis()
+        assertFalse(db.addDebt("",1_000,1,due,""))
+        assertFalse(db.addDebt("وام",0,1,due,""))
+        assertFalse(db.addDebt("وام",2,3,due,""))
+        assertFalse(db.addDebt("وام",1_000,121,due,""))
+        assertTrue(db.debts().isEmpty())
+    }
+
 }
