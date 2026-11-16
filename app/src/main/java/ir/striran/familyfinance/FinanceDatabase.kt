@@ -363,7 +363,23 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             })
             db.update("accounts",ContentValues().apply{put("balance",updated)},"id=?",arrayOf(accountId.toString()))
             val calendar=Calendar.getInstance().apply{timeInMillis=bill.dueAt}
-            when(bill.frequency) { "هفتگی"->calendar.add(Calendar.DAY_OF_YEAR,7); "ماهانه"->calendar.add(Calendar.MONTH,1); "سالانه"->calendar.add(Calendar.YEAR,1) }
+            when(bill.frequency) {
+                "هفتگی" -> calendar.add(Calendar.DAY_OF_YEAR,7)
+                "ماهانه" -> {
+                    val day=calendar.get(Calendar.DAY_OF_MONTH)
+                    calendar.set(Calendar.DAY_OF_MONTH,1)
+                    calendar.add(Calendar.MONTH,1)
+                    calendar.set(Calendar.DAY_OF_MONTH,day.coerceAtMost(calendar.getActualMaximum(Calendar.DAY_OF_MONTH)))
+                }
+                "سالانه" -> {
+                    val day=calendar.get(Calendar.DAY_OF_MONTH)
+                    val month=calendar.get(Calendar.MONTH)
+                    calendar.set(Calendar.DAY_OF_MONTH,1)
+                    calendar.add(Calendar.YEAR,1)
+                    calendar.set(Calendar.MONTH,month)
+                    calendar.set(Calendar.DAY_OF_MONTH,day.coerceAtMost(calendar.getActualMaximum(Calendar.DAY_OF_MONTH)))
+                }
+            }
             if(db.update("recurring_bills",ContentValues().apply{put("due_at",calendar.timeInMillis)},"id=? AND due_at=?",arrayOf(id.toString(),bill.dueAt.toString()))!=1) return false
             db.setTransactionSuccessful()
             return true
