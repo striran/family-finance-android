@@ -354,6 +354,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
                 if(!c.moveToFirst()) return false
                 RecurringBill(id,c.getString(0),c.getString(1),c.getLong(2),c.getLong(3),c.getString(4),c.getString(5))
             }
+            if(bill.dueAt>now) return false
             val balance=db.rawQuery("SELECT balance FROM accounts WHERE id=?",arrayOf(accountId.toString())).use { if(it.moveToFirst())it.getLong(0) else return false }
             if(balance<bill.amount) return false
             val updated=checkedBalance(balance,-bill.amount) ?: return false
