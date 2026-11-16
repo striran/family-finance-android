@@ -246,7 +246,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             }
         }, floatingActionButton={ if(page==0||page==1||page==5||page==6) FloatingActionButton(onClick={dialog=when(page){5->"debt";6->"cheque";else->"transaction"}},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
             when(page) {
-                0 -> Dashboard(pad,balance,income,expense,txs.take(5),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
+                0 -> Dashboard(pad,balance,income,expense,txs.take(5),db.categoryTotals(),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
@@ -387,7 +387,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         Box(Modifier.align(Alignment.BottomEnd).padding(end=20.dp,bottom=9.dp).size(58.dp,2.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .22f else .42f),Color.Transparent)),RoundedCornerShape(50)))
     }
 }
-@Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
+@Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,cats:List<Pair<String,Long>>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
     LazyColumn(
         Modifier.fillMaxSize()
             .padding(p)
@@ -447,6 +447,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 MetricCard("هزینه این ماه",expense,pink,sub,dark,Modifier.weight(1f))
             }
         }
+        item { CategoryDonutChart(cats,fg,sub,dark) }
         item {
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Button(
