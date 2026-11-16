@@ -338,7 +338,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     when(dialog) {
             "transaction" -> TransactionDialog(db,accounts,dark,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
             "edit" -> selected?.let { EditDialog(db,it,accounts,dark,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
-            "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف تراکنش",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=Color.White) }},confirmButton={TextButton(onClick={if(db.deleteTransaction(it.id)){refresh++;dialog="";selected=null}else{Toast.makeText(context,"حذف انجام نشد؛ موجودی یا نوع تراکنش را بررسی کنید.",Toast.LENGTH_LONG).show()}}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
+            "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف تراکنش",color=if(dark)Color.White else Color(0xFF303039))},text={GlassDialogBody(dark=dark) { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=if(dark)Color.White else Color(0xFF303039)) }},confirmButton={TextButton(onClick={if(db.deleteTransaction(it.id)){refresh++;dialog="";selected=null}else{Toast.makeText(context,"حذف انجام نشد؛ موجودی یا نوع تراکنش را بررسی کنید.",Toast.LENGTH_LONG).show()}}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
             "transfer" -> TransferDialog(accounts,dark,onDismiss={dialog=""},onSave={a,b,v,n->db.transfer(a,b,v,n).also{if(it)refresh++}})
             "member" -> SimpleNameDialog("افزودن عضو خانواده","نام عضو",dark,onDismiss={dialog=""},onSave={db.addMember(it).also{ok->if(ok)refresh++}})
             "account" -> AccountDialog(db.members(),dark,onDismiss={dialog=""},onSave={a,n->db.addAccount(a,n).also{if(it)refresh++}})
@@ -351,11 +351,11 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
             "markReceived" -> selectedReceivable?.let { receivable -> AlertDialog(onDismissRequest={dialog="";selectedReceivable=null},title={Text("ثبت دریافت طلب")},text={Text("مبلغ ${money(receivable.amount)} از ${receivable.person} دریافت شده است؟")},confirmButton={TextButton(onClick={if(db.markReceivableReceived(receivable.id))refresh++;dialog="";selectedReceivable=null}){Text("ثبت دریافت")}},dismissButton={TextButton(onClick={dialog="";selectedReceivable=null}){Text("انصراف")}}) }
             "deleteReceivable" -> selectedReceivable?.let { receivable -> AlertDialog(onDismissRequest={dialog="";selectedReceivable=null},title={Text("حذف طلب")},text={Text("طلب ثبت‌شده از ${receivable.person} حذف شود؟")},confirmButton={TextButton(onClick={db.deleteReceivable(receivable.id);refresh++;dialog="";selectedReceivable=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedReceivable=null}){Text("انصراف")}}) }
             "payDebt" -> selectedInstallment?.let { installment -> PayDebtDialog(installment,accounts,dark,onDismiss={dialog="";selectedInstallment=null},onSave={accountId->db.payDebtInstallment(installment.id,accountId).also{if(it)refresh++}}) }
-            "deleteDebt" -> selectedDebt?.let { debt -> AlertDialog(onDismissRequest={dialog="";selectedDebt=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف بدهی",color=Color.White)},text={GlassDialogBody(dark=dark){Text(if(debt.paidAmount>0)"برای این بدهی پرداخت ثبت شده و حذف آن مجاز نیست." else "بدهی «${debt.title}» و اقساط آن حذف شود؟",color=Color.White)}},confirmButton={TextButton(onClick={if(db.deleteDebt(debt.id)){refresh++;dialog="";selectedDebt=null}else Toast.makeText(context,"بدهی دارای پرداخت قبلی قابل حذف نیست.",Toast.LENGTH_LONG).show()}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedDebt=null}){Text("انصراف")}}) }
+            "deleteDebt" -> selectedDebt?.let { debt -> AlertDialog(onDismissRequest={dialog="";selectedDebt=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف بدهی",color=if(dark)Color.White else Color(0xFF303039))},text={GlassDialogBody(dark=dark){Text(if(debt.paidAmount>0)"برای این بدهی پرداخت ثبت شده و حذف آن مجاز نیست." else "بدهی «${debt.title}» و اقساط آن حذف شود؟",color=if(dark)Color.White else Color(0xFF303039))}},confirmButton={TextButton(onClick={if(db.deleteDebt(debt.id)){refresh++;dialog="";selectedDebt=null}else Toast.makeText(context,"بدهی دارای پرداخت قبلی قابل حذف نیست.",Toast.LENGTH_LONG).show()}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedDebt=null}){Text("انصراف")}}) }
             "goal" -> GoalDialog(dark,onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
             "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,dark,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
-            "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
-            "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف بودجه",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("بودجه «"+budget.category+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
+            "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف هدف",color=if(dark)Color.White else Color(0xFF303039))},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=if(dark)Color.White else Color(0xFF303039)) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
+            "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف بودجه",color=if(dark)Color.White else Color(0xFF303039))},text={GlassDialogBody(dark=dark) { Text("بودجه «"+budget.category+"» حذف شود؟",color=if(dark)Color.White else Color(0xFF303039)) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
             "cheque" -> ChequeDialog(dark,onDismiss={dialog=""},onSave={type,number,bank,person,amount,due,note->db.addCheque(type,number,bank,person,amount,due,note).also{if(it)refresh++}})
             "deleteCheque" -> selectedCheque?.let { cheque -> AlertDialog(onDismissRequest={dialog="";selectedCheque=null},title={Text("حذف چک")},text={Text("چک شماره ${cheque.number} حذف شود؟")},confirmButton={TextButton(onClick={db.deleteCheque(cheque.id);refresh++;dialog="";selectedCheque=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedCheque=null}){Text("انصراف")}}) }
         }
@@ -405,7 +405,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var number by remember{mutableStateOf("")};var bank by remember{mutableStateOf("")};var person by remember{mutableStateOf("")}
     var amount by remember{mutableStateOf("")};var note by remember{mutableStateOf("")}
     var due by remember{mutableLongStateOf(System.currentTimeMillis())};var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت چک جدید",color=Color.White)},text={GlassDialogBody(dark=dark){
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت چک جدید",color=if(dark)Color.White else Color(0xFF303039))},text={GlassDialogBody(dark=dark){
         Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("دریافتی","پرداختی").forEach{FilterChip(selected=type==it,onClick={type=it},label={Text("چک $it")})}}
             OutText(number,{number=it;error=false},"شماره چک");OutText(bank,{bank=it;error=false},"نام بانک")
@@ -427,11 +427,11 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     AlertDialog(
         onDismissRequest=onDismiss,
         containerColor=if(dark)panel else Color(0xFFF8F9F5),
-        title={Text("بررسی پیامک بانکی",color=Color.White)},
+        title={Text("بررسی پیامک بانکی",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
                 Text("نوع تراکنش: ${suggestion.type}",color=if(suggestion.type=="درآمد")aqua else pink,fontWeight=FontWeight.Bold)
-                Text("مبلغ شناسایی‌شده: ${money(suggestion.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+                Text("مبلغ شناسایی‌شده: ${money(suggestion.amount)}",color=if(dark)Color.White else Color(0xFF303039),fontWeight=FontWeight.Bold)
                 Text("دسته‌بندی پیشنهادی",color=muted)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     categories.forEach { item -> FilterChip(selected=category==item,onClick={category=item},label={Text(item)}) }
@@ -620,7 +620,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     }
 }
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{ScreenHeading("گزارش مالی","نمای کلی درآمد، هزینه و بودجه",fg,sub,dark)}
         item{CategoryDonutChart(cats,fg,sub,dark)}
         item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
@@ -657,7 +657,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     }
 }
 @Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onAccounts:()->Unit,onDebts:()->Unit,onCheques:()->Unit,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit,onExportExcel:()->Unit,onExportPdf:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{ScreenHeading("امکانات بیشتر","مدیریت بخش‌های مالی و تنظیمات",fg,sub,dark)}
         item{Text("بخش‌های اصلی",color=fg,fontWeight=FontWeight.Bold,fontSize=15.sp)}
         item{Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
@@ -686,7 +686,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(p)
-            .background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4))))
+            .background(if(dark)midnight else Color(0xFFF7F7F9))
             .padding(horizontal=16.dp),
         contentPadding=PaddingValues(top=18.dp,bottom=28.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)
@@ -749,7 +749,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     AlertDialog(
         onDismissRequest=onDismiss,
         containerColor=if(dark)panel else Color(0xFFF8F9F5),
-        title={Text("ثبت بدهی جدید",color=Color.White)},
+        title={Text("ثبت بدهی جدید",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutText(title,{title=it;error=false},"عنوان بدهی یا طلبکار")
@@ -782,7 +782,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var frequency by remember { mutableStateOf("ماهانه") }
     var due by remember { mutableLongStateOf(java.util.Calendar.getInstance().apply{add(java.util.Calendar.DAY_OF_YEAR,1)}.timeInMillis) }
     var error by remember { mutableStateOf(false) }
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت هزینه دوره‌ای",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت هزینه دوره‌ای",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
             OutText(title,{title=it;error=false},"عنوان (مثلاً اینترنت یا برق)")
             OutText(category,{category=it;error=false},"دسته‌بندی")
@@ -800,9 +800,9 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
 @Composable private fun PayRecurringBillDialog(bill:RecurringBill,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long)->Boolean) {
     var accountId by remember{mutableLongStateOf(accounts.firstOrNull()?.id?:0L)}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت پرداخت ${bill.title}",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF8F9F5),title={Text("ثبت پرداخت ${bill.title}",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-            Text("مبلغ: ${money(bill.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+            Text("مبلغ: ${money(bill.amount)}",color=if(dark)Color.White else Color(0xFF303039),fontWeight=FontWeight.Bold)
             Text("سررسید فعلی: ${jalali(bill.dueAt)}",color=muted,fontSize=12.sp)
             Text("برداشت از حساب:",color=muted)
             accounts.forEach{a->FilterChip(selected=accountId==a.id,onClick={accountId=a.id},label={Text("${a.memberName} · ${a.name} · ${money(a.balance)}")})}
@@ -823,7 +823,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     AlertDialog(
         onDismissRequest=onDismiss,
         containerColor=if(dark)panel else Color(0xFFF8F9F5),
-        title={Text("ثبت طلب جدید",color=Color.White)},
+        title={Text("ثبت طلب جدید",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutText(person,{person=it;error=false},"نام شخص")
@@ -847,10 +847,10 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     AlertDialog(
         onDismissRequest=onDismiss,
         containerColor=if(dark)panel else Color(0xFFF8F9F5),
-        title={Text("پرداخت قسط ${installment.number}",color=Color.White)},
+        title={Text("پرداخت قسط ${installment.number}",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("مبلغ قسط: ${money(installment.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+                Text("مبلغ قسط: ${money(installment.amount)}",color=if(dark)Color.White else Color(0xFF303039),fontWeight=FontWeight.Bold)
                 Text("سررسید: ${jalali(installment.dueAt)}",color=muted,fontSize=12.sp)
                 Text("برداشت از حساب:",color=muted)
                 accounts.forEach { a ->
@@ -883,7 +883,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var newCategory by remember { mutableStateOf("") }
     var categoryError by remember { mutableStateOf(false) }
     val categoryOptions = remember(type) { db.categories(type) }
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text(title,color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text(title,color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Row { FilterChip(type=="درآمد",{type="درآمد";category=db.categories("درآمد").firstOrNull().orEmpty()},{Text("درآمد")}); Spacer(Modifier.width(8.dp)); FilterChip(type=="هزینه",{type="هزینه";category=db.categories("هزینه").firstOrNull().orEmpty()},{Text("هزینه")}) }
@@ -905,7 +905,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     if(showAddCategory) AlertDialog(
         onDismissRequest={showAddCategory=false;newCategory="";categoryError=false},
         containerColor=if(dark)panel else Color(0xFFF8F9F5),
-        title={Text("افزودن دسته‌بندی $type",color=Color.White)},
+        title={Text("افزودن دسته‌بندی $type",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutText(newCategory,{newCategory=it;categoryError=false},"نام دسته‌بندی جدید")
@@ -925,7 +925,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var amount by remember{mutableStateOf("")}
     var note by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("انتقال وجه بین حساب‌ها",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("انتقال وجه بین حساب‌ها",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Text("حساب مبدأ",color=muted)
@@ -943,7 +943,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
 @Composable private fun SimpleNameDialog(title:String,label:String,dark:Boolean,onDismiss:()->Unit,onSave:(String)->Boolean){
     var v by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text(title,color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text(title,color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) { Column { OutText(v,{v=it;error=false},label); if(error) Text("مقدار معتبر وارد کنید.",color=pink) } }},
         confirmButton={TextButton(onClick={if(onSave(v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
@@ -952,7 +952,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var id by remember{mutableStateOf(members.firstOrNull()?.id?:0L)}
     var name by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("افزودن حساب",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("افزودن حساب",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) { Column { members.forEach{FilterChip(id==it.id,{id=it.id},{Text(it.name)})}; OutText(name,{name=it;error=false},"نام حساب"); if(error)Text("نام حساب و عضو را بررسی کنید.",color=pink) } }},
         confirmButton={TextButton(onClick={if(onSave(id,name))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
@@ -961,7 +961,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var c by remember{mutableStateOf("خرید روزانه")}
     var a by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("تعریف بودجه ماهانه",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("تعریف بودجه ماهانه",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(c,{c=it;error=false},"دسته‌بندی");OutText(a,{a=formatAmount(it);error=false},"سقف بودجه به تومان",numeric=true);if(error)Text("دسته‌بندی و مبلغ معتبر وارد کنید.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(a);if(v!=null&&v>0&&onSave(c,v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
@@ -970,7 +970,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var t by remember{mutableStateOf("")}
     var a by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("هدف پس‌انداز جدید",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("هدف پس‌انداز جدید",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(t,{t=it;error=false},"عنوان هدف");OutText(a,{a=formatAmount(it);error=false},"مبلغ هدف به تومان",numeric=true);if(error)Text("عنوان هدف و مبلغ معتبر وارد کنید.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(a);if(t.isNotBlank()&&v!=null&&v>0&&onSave(t.trim(),v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
@@ -978,7 +978,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
 @Composable private fun GoalContributionDialog(goal:SavingGoal,dark:Boolean,onDismiss:()->Unit,onSave:(Long)->Boolean){
     var amount by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("افزودن به هدف پس‌انداز",color=Color.White)},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("افزودن به هدف پس‌انداز",color=if(dark)Color.White else Color(0xFF303039))},
         text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("هدف: ${goal.title}");Text("باقی‌مانده: ${money((goal.target-goal.saved).coerceAtLeast(0))}");OutText(amount,{amount=formatAmount(it);error=false},"مبلغ واریزی به تومان",numeric=true);if(error)Text("مبلغ معتبر وارد کنید و از مبلغ باقی‌مانده بیشتر نباشد.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&v<=goal.target-goal.saved&&onSave(v))onDismiss()else error=true}){Text("ثبت پس‌انداز")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
