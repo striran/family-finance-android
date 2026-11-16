@@ -393,6 +393,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         if(recurringBills.isEmpty()) item { Text("هزینه دوره‌ای ثبت نشده است.",color=sub,fontSize=12.sp) }
         items(recurringBills,key={"bill${it.id}"}) { bill -> GlassCard(dark=dark) { Row(verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(bill.title,color=fg,fontWeight=FontWeight.Bold); Text("${bill.category} · ${money(bill.amount)}",color=sub,fontSize=11.sp); Text("سررسید: ${jalali(bill.dueAt)} · ${bill.frequency}",color=if(bill.dueAt<System.currentTimeMillis())pink else sub,fontSize=11.sp); if(bill.note.isNotBlank()) Text(bill.note,color=sub,fontSize=10.sp) }; IconButton(onClick={onDeleteRecurringBill(bill)}){Icon(Icons.Default.Delete,null,tint=pink)} }; Button(onClick={onPayRecurringBill(bill)},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=violet)){Text("ثبت پرداخت و انتقال سررسید بعدی")} } }
         item { Text("بدهی‌ها و اقساط",color=fg,fontWeight=FontWeight.Bold) }
+        if(debts.isEmpty()) item { GlassCard(dark=dark) { Text("هنوز بدهی یا قسطی ثبت نشده است.",color=sub); Text("برای ثبت اولین بدهی، دکمه + را بزنید.",color=sub,fontSize=12.sp) } }
         items(debts,key={it.id}) { debt ->
             val installments=installmentsByDebt[debt.id].orEmpty()
             var expanded by remember(debt.id) { mutableStateOf(false) }
