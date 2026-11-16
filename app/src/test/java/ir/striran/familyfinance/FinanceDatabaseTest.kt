@@ -165,6 +165,38 @@ class FinanceDatabaseTest {
         assertTrue(db.debts().isEmpty())
     }
 
+    @Test fun receivablesCanBeCreatedReceivedAndDeletedWithoutChangingCashBalance() {
+        val due = System.currentTimeMillis() + 86_400_000L
+        assertTrue(db.addReceivable("علی", 250_000L, due, "قرض کوتاه‌مدت"))
+        val receivable = db.receivables().single()
+        assertEquals(250_000L, db.totalPendingReceivables())
+        assertTrue(db.markReceivableReceived(receivable.id))
+        assertFalse(db.markReceivableReceived(receivable.id))
+        assertEquals(0L, db.totalPendingReceivables())
+        assertNotNull(db.receivables().single().receivedAt)
+        assertEquals(0L, db.totalBalance())
+        assertTrue(db.deleteReceivable(receivable.id))
+    }
+
+    @Test fun receivableValidationRejectsBlankPersonAndInvalidAmount() {
+        val due = System.currentTimeMillis()
+        assertFalse(db.addReceivable("", 100L, due, ""))
+        assertFalse(db.addReceivable("علی", 0L, due, ""))
+        assertFalse(db.addReceivable("علی", 100L, 0L, ""))
+        assertTrue(db.receivables().isEmpty())
+    }
+
+    @Test fun overdueAndUpcomingInstallmentsAreClassifiedByDueDate() {
+        val now = System.currentTimeMillis()
+        val yesterday = now - 86_400_000L
+        val tomorrow = now + 86_400_000L
+        assertTrue(db.addDebt("وام عقب‌افتاده", 100L, 1, yesterday, ""))
+        assertTrue(db.addDebt("وام نزدیک", 200L, 1, tomorrow, ""))
+        assertEquals(1, db.overdueInstallments(now).size)
+        assertEquals(1, db.upcomingInstallments(3, now).size)
+        assertEquals(300L, db.totalRemainingDebt())
+    }
+
     @Test fun upgradingVersionThreeDatabasePreservesExistingDataAndAddsDebtTables() {
         db.close()
         context.deleteDatabase("family_finance.db")
