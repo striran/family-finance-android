@@ -9,6 +9,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import android.graphics.pdf.PdfDocument
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -104,6 +111,68 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+                if (uri != null) try {
+                    val rows = activeDb.allTransactions()
+                    val csv = buildString {
+                        append('\uFEFF')
+                        appendLine("تاریخ,نوع,دسته‌بندی,مبلغ (تومان),حساب,عضو خانواده,توضیحات")
+                        rows.forEach { t ->
+                            val cells = listOf(jalali(t.createdAt),t.type,t.category,t.amount.toString(),t.accountName,t.memberName,t.note)
+                            appendLine(cells.joinToString(",") { "\"" + it.replace("\"","\"\"") + "\"" })
+                        }
+                    }
+                    contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(csv) }
+                        ?: throw IllegalStateException("امکان ذخیره فایل Excel وجود ندارد")
+                    Toast.makeText(this, "گزارش سازگار با Excel ذخیره شد.", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "خروجی Excel ناموفق بود: \${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
+            }
+            val exportPdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+                if (uri != null) try {
+                    val rows = activeDb.allTransactions()
+                    val document = PdfDocument()
+                    val pages = rows.chunked(22).ifEmpty { listOf(emptyList()) }
+                    pages.forEachIndexed { index, pageRows ->
+                        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, index + 1).create()
+                        val page = document.startPage(pageInfo)
+                        val reportText = buildString {
+                            appendLine("گزارش مالی خانواده")
+                            appendLine("تاریخ تهیه: \${jalali(System.currentTimeMillis())}")
+                            appendLine("صفحه \${index + 1} از \${pages.size}")
+                            appendLine("────────────────────────────────────────")
+                            pageRows.forEach { t ->
+                                appendLine("\${jalali(t.createdAt)} | \${t.type} | \${t.category}")
+                                appendLine("\${money(t.amount)} | \${t.accountName} | \${t.memberName}")
+                                if (t.note.isNotBlank()) appendLine("توضیحات: \${t.note}")
+                                appendLine("────────────────────────────────────────")
+                            }
+                        }
+                        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = android.graphics.Color.BLACK
+                            textSize = 12f
+                            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                        }
+                        val layout = StaticLayout.Builder.obtain(reportText,0,reportText.length,paint,510)
+                            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                            .setTextDirection(TextDirectionHeuristics.RTL)
+                            .setLineSpacing(3f,1f)
+                            .build()
+                        page.canvas.save()
+                        page.canvas.translate(42f,42f)
+                        layout.draw(page.canvas)
+                        page.canvas.restore()
+                        document.finishPage(page)
+                    }
+                    contentResolver.openOutputStream(uri)?.use { document.writeTo(it) }
+                        ?: throw IllegalStateException("امکان ذخیره فایل PDF وجود ندارد")
+                    document.close()
+                    Toast.makeText(this, "گزارش PDF ذخیره شد.", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "خروجی PDF ناموفق بود: \${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
+            }
             val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) {
                     val temporary = File(cacheDir, "finance-restore.tmp")
@@ -142,7 +211,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            FinanceApp(activeDb, onExport = { export.launch("پشتیبان-مدیریت-مالی.db") }, onImport = { import.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")) })
+            FinanceApp(activeDb, onExport = { export.launch("پشتیبان-مدیریت-مالی.db") }, onImport = { import.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")) }, onExportExcel = { exportCsv.launch("گزارش-تراکنش‌های-مالی.csv") }, onExportPdf = { exportPdf.launch("گزارش-مالی-خانواده.pdf") })
         }
     }
 }
@@ -177,7 +246,7 @@ private fun jalali(millis: Long): String {
 }
 
 @Composable
-fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) {
+fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, onExportExcel: () -> Unit, onExportPdf: () -> Unit) {
     var page by remember { mutableIntStateOf(0) }
     var refresh by remember { mutableIntStateOf(0) }
     var dialog by remember { mutableStateOf("") }
@@ -250,7 +319,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
-                4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport)
+                4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport,onExportExcel,onExportPdf)
                 5 -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
                 else -> ChequesPage(pad,cheques,fg,sub,dark,{dialog="cheque"},{cheque,status->db.updateChequeStatus(cheque.id,status).also{if(it)refresh++}},{cheque->selectedCheque=cheque;dialog="deleteCheque"})
             }
@@ -630,11 +699,12 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         }
     }
 }
-@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
+@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit,onExportExcel:()->Unit,onExportPdf:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{ScreenHeading("امکانات بیشتر","تنظیمات و ابزارهای مدیریت خانواده",fg,sub,dark)}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
         item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
+        item{GlassCard(dark=dark){Text("گزارش و خروجی",color=fg,fontWeight=FontWeight.Bold);Text("گزارش تراکنش‌ها را برای بایگانی یا بررسی در رایانه ذخیره کنید.",color=sub,fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick=onExportExcel){Icon(Icons.Default.TableChart,null);Spacer(Modifier.width(4.dp));Text("خروجی Excel")};TextButton(onClick=onExportPdf){Icon(Icons.Default.PictureAsPdf,null);Spacer(Modifier.width(4.dp));Text("خروجی PDF")}}}}
         item{Row(verticalAlignment=Alignment.CenterVertically){Text("اهداف پس‌انداز",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onGoal){Text("هدف جدید")}}}
         if(goals.isEmpty()) item{Text("هنوز هدفی ثبت نشده است.",color=sub)} else items(goals,key={it.id}){g->
             GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(g.title,color=fg,fontWeight=FontWeight.Bold);Text(money(g.saved)+" از "+money(g.target),color=sub)};IconButton(onClick={onDeleteGoal(g)}){Icon(Icons.Default.Delete,null,tint=pink)}};LinearProgressIndicator(progress={(g.saved.toFloat()/g.target).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(vertical=6.dp));TextButton(onClick={onContribute(g)},enabled=g.saved<g.target){Text(if(g.saved<g.target)"افزودن مبلغ به پس‌انداز" else "هدف تکمیل شده است")}}
