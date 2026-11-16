@@ -30,9 +30,13 @@ data class FamilyReceivable(
     val id: Long, val person: String, val amount: Long, val dueAt: Long,
     val note: String, val receivedAt: Long?
 )
+data class RecurringBill(
+    val id: Long, val title: String, val category: String, val amount: Long,
+    val dueAt: Long, val frequency: String, val note: String
+)
 private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 5) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 6) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
@@ -43,6 +47,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         db.execSQL("CREATE TABLE goals(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0)")
         createDebtTables(db)
         createReceivableTables(db)
+        createRecurringBillTables(db)
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
         db.execSQL("INSERT INTO accounts(member_id,name,balance) VALUES(1,'کیف پول من',0),(2,'کیف پول همسر',0)")
     }
@@ -57,6 +62,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         }
         if (oldVersion < 4) createDebtTables(db)
         if (oldVersion < 5) createReceivableTables(db)
+        if (oldVersion < 6) createRecurringBillTables(db)
     }
 
     fun members(): List<FinanceMember> = readableDatabase.rawQuery("SELECT id,name FROM members ORDER BY id", null).use { c ->
@@ -318,6 +324,53 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             return deleted
         } finally { db.endTransaction() }
     }
+
+    private fun createRecurringBillTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS recurring_bills(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, category TEXT NOT NULL, amount INTEGER NOT NULL, due_at INTEGER NOT NULL, frequency TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_recurring_bills_due ON recurring_bills(active,due_at)")
+    }
+
+    fun recurringBills(): List<RecurringBill> = readableDatabase.rawQuery(
+        "SELECT id,title,category,amount,due_at,frequency,note FROM recurring_bills WHERE active=1 ORDER BY due_at,id", null
+    ).use { c -> buildList { while(c.moveToNext()) add(RecurringBill(c.getLong(0),c.getString(1),c.getString(2),c.getLong(3),c.getLong(4),c.getString(5),c.getString(6))) } }
+
+    fun addRecurringBill(title:String,category:String,amount:Long,dueAt:Long,frequency:String,note:String):Boolean {
+        if(title.isBlank() || category.isBlank() || amount<=0 || dueAt<=0 || frequency !in listOf("هفتگی","ماهانه","سالانه")) return false
+        return writableDatabase.insert("recurring_bills",null,ContentValues().apply {
+            put("title",title.trim());put("category",category.trim());put("amount",amount)
+            put("due_at",dueAt);put("frequency",frequency);put("note",note.trim())
+        })>0
+    }
+
+    fun dueRecurringBills(now:Long=System.currentTimeMillis()):List<RecurringBill> =
+        readableDatabase.rawQuery("SELECT id,title,category,amount,due_at,frequency,note FROM recurring_bills WHERE active=1 AND due_at<=? ORDER BY due_at,id",arrayOf(now.toString()))
+            .use { c -> buildList { while(c.moveToNext()) add(RecurringBill(c.getLong(0),c.getString(1),c.getString(2),c.getLong(3),c.getLong(4),c.getString(5),c.getString(6))) } }
+
+    fun payRecurringBill(id:Long,accountId:Long,now:Long=System.currentTimeMillis()):Boolean {
+        val db=writableDatabase
+        db.beginTransaction()
+        try {
+            val bill=db.rawQuery("SELECT title,category,amount,due_at,frequency,note FROM recurring_bills WHERE id=? AND active=1",arrayOf(id.toString())).use { c ->
+                if(!c.moveToFirst()) return false
+                RecurringBill(id,c.getString(0),c.getString(1),c.getLong(2),c.getLong(3),c.getString(4),c.getString(5))
+            }
+            val balance=db.rawQuery("SELECT balance FROM accounts WHERE id=?",arrayOf(accountId.toString())).use { if(it.moveToFirst())it.getLong(0) else return false }
+            if(balance<bill.amount) return false
+            val updated=checkedBalance(balance,-bill.amount) ?: return false
+            db.insertOrThrow("transactions",null,ContentValues().apply {
+                put("account_id",accountId);put("type","هزینه");put("category",bill.category)
+                put("amount",bill.amount);put("note",("پرداخت دوره‌ای: "+bill.title+" "+bill.note).trim());put("created_at",now)
+            })
+            db.update("accounts",ContentValues().apply{put("balance",updated)},"id=?",arrayOf(accountId.toString()))
+            val calendar=Calendar.getInstance().apply{timeInMillis=bill.dueAt}
+            when(bill.frequency) { "هفتگی"->calendar.add(Calendar.DAY_OF_YEAR,7); "ماهانه"->calendar.add(Calendar.MONTH,1); "سالانه"->calendar.add(Calendar.YEAR,1) }
+            if(db.update("recurring_bills",ContentValues().apply{put("due_at",calendar.timeInMillis)},"id=? AND due_at=?",arrayOf(id.toString(),bill.dueAt.toString()))!=1) return false
+            db.setTransactionSuccessful()
+            return true
+        } finally { db.endTransaction() }
+    }
+
+    fun deleteRecurringBill(id:Long):Boolean = writableDatabase.delete("recurring_bills","id=?",arrayOf(id.toString()))==1
 
     private fun createReceivableTables(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS receivables(id INTEGER PRIMARY KEY AUTOINCREMENT, person TEXT NOT NULL, amount INTEGER NOT NULL, due_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, received_at INTEGER)")
