@@ -101,6 +101,7 @@ class FinanceDatabaseTest {
 
     @Test fun deletingTransactionRejectsBalanceOverflowWithoutChangingData() {
         val account = db.accounts().first()
+        assertTrue(db.addTransaction(account.id, "درآمد", "حقوق", 200, ""))
         assertTrue(db.addTransaction(account.id, "هزینه", "خرید", 100, ""))
         val expense = db.allTransactions().first { it.category == "خرید" }
         db.writableDatabase.execSQL(
