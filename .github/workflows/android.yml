@@ -16,7 +16,6 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,11 +28,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Restore stable signing key for debug builds
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
       - name: Run unit tests
         run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: gradle --no-daemon assembleDebug
       - name: Verify stable debug APK signature
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
