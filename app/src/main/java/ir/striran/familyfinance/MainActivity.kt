@@ -232,7 +232,15 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp)){
         Text("تراکنش‌ها",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جست‌وجوی عنوان، حساب یا مبلغ")},leadingIcon={Icon(Icons.Default.Search,null)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text))
+        GlassCard(dark=dark) {
+            OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جست‌وجوی عنوان، حساب یا مبلغ")},leadingIcon={Icon(Icons.Default.Search,null)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text),colors=OutlinedTextFieldDefaults.colors(
+                focusedBorderColor=if(dark) Color(0xFFC4BDFF) else violet,
+                unfocusedBorderColor=if(dark) Color.White.copy(alpha=.22f) else Color(0xFFD6DCEF),
+                focusedTextColor=fg,unfocusedTextColor=fg,
+                focusedLabelColor=if(dark) Color(0xFFC4BDFF) else violet,
+                cursorColor=if(dark) Color(0xFFC4BDFF) else violet
+            ))
+        }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){
             listOf("همه","درآمد","هزینه").forEach { type -> FilterChip(selected=filter==type,onClick={filter=type},label={Text(type)}) }
