@@ -68,6 +68,10 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             dailyReminder
         )
+        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "برای شناسایی پیامک‌های بانکی، اجازه دسترسی به پیامک ورودی را تأیید کنید.", Toast.LENGTH_LONG).show()
+            requestPermissions(arrayOf(Manifest.permission.RECEIVE_SMS), 7002)
+        }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7001)
         }
@@ -179,6 +183,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
     var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
+    var smsSuggestion by remember { mutableStateOf(readBankSmsSuggestion(context)) }
     val balance = remember(refresh) { db.totalBalance() }
     val income = remember(refresh) { db.monthTotal("درآمد") }
     val expense = remember(refresh) { db.monthTotal("هزینه") }
@@ -261,7 +266,48 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
             "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف بودجه",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("بودجه «"+budget.category+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
         }
+        smsSuggestion?.let { suggestion ->
+            BankSmsReviewDialog(suggestion,accounts,db.categories(suggestion.type),dark,
+                onDismiss={clearBankSmsSuggestion(context);smsSuggestion=null},
+                onSave={accountId,category ->
+                    val saved=db.addTransaction(accountId,suggestion.type,category,suggestion.amount,"ثبت از پیامک بانکی: ${suggestion.body.take(180)}")
+                    if(saved){refresh++;clearBankSmsSuggestion(context);smsSuggestion=null}
+                    saved
+                })
+        }
     }
+}
+
+@Composable private fun BankSmsReviewDialog(
+    suggestion:BankSmsSuggestion, accounts:List<FinanceAccount>, categories:List<String>, dark:Boolean,
+    onDismiss:()->Unit, onSave:(Long,String)->Boolean
+) {
+    var accountId by remember { mutableLongStateOf(accounts.firstOrNull()?.id ?: 0L) }
+    var category by remember { mutableStateOf(suggestion.category) }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest=onDismiss,
+        containerColor=if(dark)panel else Color(0xFFF7F8FF),
+        title={Text("بررسی پیامک بانکی",color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
+            Column(verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Text("نوع تراکنش: ${suggestion.type}",color=if(suggestion.type=="درآمد")aqua else pink,fontWeight=FontWeight.Bold)
+                Text("مبلغ شناسایی‌شده: ${money(suggestion.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+                Text("دسته‌بندی پیشنهادی",color=muted)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    categories.forEach { item -> FilterChip(selected=category==item,onClick={category=item},label={Text(item)}) }
+                }
+                OutText(category,{category=it;error=false},"دسته‌بندی نهایی")
+                Text("حساب مقصد/مبدأ:",color=muted)
+                accounts.forEach { a -> FilterChip(selected=accountId==a.id,onClick={accountId=a.id},label={Text("${a.memberName} · ${a.name}")}) }
+                Text("متن پیامک: ${suggestion.body.take(220)}",color=Color.LightGray,fontSize=11.sp)
+                Text("هیچ مبلغی تا زمان تأیید شما در حساب ثبت نمی‌شود.",color=aqua,fontSize=11.sp)
+                if(error) Text("حساب یا دسته‌بندی را بررسی کنید. برای هزینه، موجودی حساب باید کافی باشد.",color=pink)
+            }
+        }},
+        confirmButton={TextButton(onClick={if(category.isNotBlank() && accounts.any{it.id==accountId} && onSave(accountId,category)) onDismiss() else error=true}){Text("تأیید و ثبت")}},
+        dismissButton={TextButton(onClick=onDismiss){Text("رد کردن")}}
+    )
 }
 
 @Composable private fun GlassCard(modifier:Modifier=Modifier,dark:Boolean=true,content:@Composable ColumnScope.()->Unit){
