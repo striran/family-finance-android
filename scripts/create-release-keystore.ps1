@@ -25,8 +25,14 @@ New-Item -ItemType Directory -Force -Path $folder | Out-Null
 $keystore = Join-Path $folder "family-finance-release.jks"
 if (Test-Path $keystore) { throw "فایل کلید از قبل وجود دارد؛ برای جلوگیری از بازنویسی متوقف شد: $keystore" }
 
-& $keytool -genkeypair -v -keystore $keystore -alias $alias -keyalg RSA -keysize 4096 -validity 10000 -storepass $password -keypass $password -dname "CN=Family Finance, OU=Android, O=Personal, L=Ahvaz, ST=Khuzestan, C=IR"
-if ($LASTEXITCODE -ne 0) { throw "ساخت کلید امضا ناموفق بود." }
+$env:FAMILY_FINANCE_KEY_PASSWORD = $password
+try {
+    & $keytool -genkeypair -v -keystore $keystore -alias $alias -keyalg RSA -keysize 4096 -validity 10000 -storepass:env FAMILY_FINANCE_KEY_PASSWORD -keypass:env FAMILY_FINANCE_KEY_PASSWORD -dname "CN=Family Finance, OU=Android, O=Personal, L=Ahvaz, ST=Khuzestan, C=IR"
+    if ($LASTEXITCODE -ne 0) { throw "ساخت کلید امضا ناموفق بود." }
+}
+finally {
+    Remove-Item Env:FAMILY_FINANCE_KEY_PASSWORD -ErrorAction SilentlyContinue
+}
 
 $bytes = [System.IO.File]::ReadAllBytes($keystore)
 $base64 = [Convert]::ToBase64String($bytes)
