@@ -1,6 +1,7 @@
 package ir.striran.familyfinance
 
 import android.app.Activity
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -161,17 +162,18 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=Color(0xFFC4BDFF),secondary=aqua,background=midnight,surface=panel) else lightColorScheme(primary=violet,secondary=Color(0xFF168F8A))) {
         Scaffold(containerColor=bg, bottomBar={
             NavigationBar(modifier=Modifier.padding(horizontal=12.dp, vertical=7.dp).clip(RoundedCornerShape(26.dp)).border(1.dp,if(dark)Color.White.copy(alpha=.16f) else Color(0xFFDDE2F3),RoundedCornerShape(26.dp)),containerColor=if(dark) Color(0xFF273252).copy(alpha=.94f) else Color.White.copy(alpha=.96f),tonalElevation=0.dp) {
-                val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر")
-                val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz)
+                val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط")
+                val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable)
                 labels.forEachIndexed { i,label -> NavigationBarItem(selected=page==i,onClick={page=i},icon={Icon(icons[i],null)},label={Text(label,fontSize=10.sp)}) }
             }
-        }, floatingActionButton={ if(page==0||page==1) FloatingActionButton(onClick={dialog="transaction"},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
+        }, floatingActionButton={ if(page==0||page==1||page==5) FloatingActionButton(onClick={dialog=if(page==5)"debt" else "transaction"},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
             when(page) {
                 0 -> Dashboard(pad,balance,income,expense,txs.take(5),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
-                else -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport)
+                4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport)
+                else -> DebtsPage(pad,debts,installmentsByDebt,fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt })
             }
         }
         when(dialog) {
@@ -182,6 +184,9 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "member" -> SimpleNameDialog("افزودن عضو خانواده","نام عضو",dark,onDismiss={dialog=""},onSave={db.addMember(it).also{ok->if(ok)refresh++}})
             "account" -> AccountDialog(db.members(),dark,onDismiss={dialog=""},onSave={a,n->db.addAccount(a,n).also{if(it)refresh++}})
             "budget" -> BudgetDialog(dark,onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
+            "debt" -> DebtDialog(dark,onDismiss={dialog=""},onSave={title,total,count,due,note->db.addDebt(title,total,count,due,note).also{if(it)refresh++}})
+            "payDebt" -> selectedInstallment?.let { installment -> PayDebtDialog(installment,accounts,dark,onDismiss={dialog="";selectedInstallment=null},onSave={accountId->db.payDebtInstallment(installment.id,accountId).also{if(it)refresh++}}) }
+            "deleteDebt" -> selectedDebt?.let { debt -> AlertDialog(onDismissRequest={dialog="";selectedDebt=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف بدهی",color=Color.White)},text={GlassDialogBody(dark=dark){Text(if(debt.paidAmount>0)"برای این بدهی پرداخت ثبت شده و حذف آن مجاز نیست." else "بدهی «${debt.title}» و اقساط آن حذف شود؟",color=Color.White)}},confirmButton={TextButton(onClick={if(db.deleteDebt(debt.id)){refresh++;dialog="";selectedDebt=null}else Toast.makeText(context,"بدهی دارای پرداخت قبلی قابل حذف نیست.",Toast.LENGTH_LONG).show()}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedDebt=null}){Text("انصراف")}}) }
             "goal" -> GoalDialog(dark,onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
             "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,dark,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
             "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
@@ -322,6 +327,115 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         }
     }
 }
+
+@Composable private fun DebtsPage(
+    p:PaddingValues, debts:List<FamilyDebt>, installmentsByDebt:Map<Long,List<DebtInstallment>>,
+    fg:Color, sub:Color, dark:Boolean, onPay:(DebtInstallment)->Unit, onDelete:(FamilyDebt)->Unit
+) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(p)
+            .background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF))))
+            .padding(horizontal=16.dp),
+        contentPadding=PaddingValues(top=18.dp,bottom=28.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)
+    ) {
+        item { Text("مدیریت بدهی‌ها و اقساط",color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold) }
+        item { Text("پرداخت هر قسط از حساب انتخابی ثبت می‌شود و موجودی و گزارش هزینه‌ها به‌روزرسانی خواهد شد.",color=sub,fontSize=12.sp) }
+        if(debts.isEmpty()) item { GlassCard(dark=dark) { Text("هنوز بدهی یا قسطی ثبت نشده است.",color=sub); Text("برای ثبت اولین بدهی، دکمه + را بزنید.",color=sub,fontSize=12.sp) } }
+        items(debts,key={it.id}) { debt ->
+            val installments=installmentsByDebt[debt.id].orEmpty()
+            var expanded by remember(debt.id) { mutableStateOf(false) }
+            val percent=if(debt.totalAmount>0)(debt.paidAmount.toFloat()/debt.totalAmount).coerceIn(0f,1f) else 0f
+            GlassCard(dark=dark) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(debt.title,color=fg,fontWeight=FontWeight.Bold,fontSize=16.sp)
+                        Text("${debt.paidInstallments} از ${debt.installmentCount} قسط پرداخت شده",color=sub,fontSize=11.sp)
+                    }
+                    IconButton(onClick={onDelete(debt)}) { Icon(Icons.Default.Delete,null,tint=pink) }
+                }
+                Text("مانده بدهی: ${money(debt.remainingAmount)}",color=if(debt.remainingAmount==0L)aqua else fg,fontWeight=FontWeight.Bold)
+                Text("پرداخت‌شده: ${money(debt.paidAmount)} از ${money(debt.totalAmount)}",color=sub,fontSize=11.sp)
+                LinearProgressIndicator(progress={percent},modifier=Modifier.fillMaxWidth().padding(vertical=7.dp))
+                debt.nextDueAt?.let { Text("سررسید قسط بعدی: ${jalali(it)}",color=if(it<System.currentTimeMillis())pink else sub,fontSize=11.sp) }
+                TextButton(onClick={expanded=!expanded}) { Text(if(expanded)"بستن فهرست اقساط" else "مشاهده اقساط (${installments.size})") }
+                if(expanded) {
+                    installments.forEach { installment ->
+                        Divider(color=if(dark)Color.White.copy(alpha=.12f) else Color(0xFFDDE2F3))
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("قسط ${installment.number} · ${money(installment.amount)}",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)
+                                Text("سررسید: ${jalali(installment.dueAt)}",color=sub,fontSize=10.sp)
+                                if(installment.paidAt!=null) Text("پرداخت‌شده در ${jalali(installment.paidAt)}",color=aqua,fontSize=10.sp)
+                            }
+                            if(installment.paidAt==null) Button(onClick={onPay(installment)},colors=ButtonDefaults.buttonColors(containerColor=violet),contentPadding=PaddingValues(horizontal=10.dp,vertical=5.dp)) { Text("پرداخت",fontSize=11.sp) }
+                            else Icon(Icons.Default.CheckCircle,null,tint=aqua)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun DebtDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,Long,Int,Long,String)->Boolean) {
+    val context=LocalContext.current
+    var title by remember { mutableStateOf("") }
+    var total by remember { mutableStateOf("") }
+    var count by remember { mutableStateOf("12") }
+    var note by remember { mutableStateOf("") }
+    var due by remember { mutableLongStateOf(java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH,1) }.timeInMillis) }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest=onDismiss,
+        containerColor=if(dark)panel else Color(0xFFF7F8FF),
+        title={Text("ثبت بدهی جدید",color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutText(title,{title=it;error=false},"عنوان بدهی یا طلبکار")
+                OutText(total,{total=formatAmount(it);error=false},"مبلغ کل به تومان",numeric=true)
+                OutText(count,{count=it.filter(Char::isDigit);error=false},"تعداد اقساط",numeric=true)
+                OutlinedButton(onClick={
+                    val cal=java.util.Calendar.getInstance().apply{timeInMillis=due}
+                    DatePickerDialog(context,{_,year,month,day->
+                        due=java.util.Calendar.getInstance().apply{set(year,month,day,12,0,0);set(java.util.Calendar.MILLISECOND,0)}.timeInMillis
+                    },cal.get(java.util.Calendar.YEAR),cal.get(java.util.Calendar.MONTH),cal.get(java.util.Calendar.DAY_OF_MONTH)).show()
+                },modifier=Modifier.fillMaxWidth()) { Text("اولین سررسید: ${jalali(due)}") }
+                OutText(note,{note=it},"توضیحات (اختیاری)")
+                if(error) Text("عنوان، مبلغ و تعداد اقساط را بررسی کنید. تعداد اقساط حداکثر ۱۲۰ و مبلغ هر قسط باید مثبت باشد.",color=pink,fontSize=12.sp)
+            }
+        }},
+        confirmButton={TextButton(onClick={
+            val amount=parseAmount(total); val installments=count.toIntOrNull()
+            if(amount!=null&&installments!=null&&onSave(title,amount,installments,due,note)) onDismiss() else error=true
+        }) { Text("ثبت بدهی") }},
+        dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}}
+    )
+}
+
+@Composable private fun PayDebtDialog(installment:DebtInstallment,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long)->Boolean) {
+    var accountId by remember { mutableLongStateOf(accounts.firstOrNull()?.id?:0L) }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest=onDismiss,
+        containerColor=if(dark)panel else Color(0xFFF7F8FF),
+        title={Text("پرداخت قسط ${installment.number}",color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Text("مبلغ قسط: ${money(installment.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+                Text("سررسید: ${jalali(installment.dueAt)}",color=muted,fontSize=12.sp)
+                Text("برداشت از حساب:",color=muted)
+                accounts.forEach { a ->
+                    FilterChip(selected=accountId==a.id,onClick={accountId=a.id},label={Text("${a.memberName} · ${a.name} · ${money(a.balance)}")})
+                }
+                if(error) Text("پرداخت انجام نشد؛ حساب انتخابی باید موجودی کافی داشته باشد.",color=pink,fontSize=12.sp)
+            }
+        }},
+        confirmButton={TextButton(onClick={if(accounts.any{it.id==accountId}&&onSave(accountId))onDismiss()else error=true}){Text("تأیید پرداخت")}},
+        dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}}
+    )
+}
+
 @Composable private fun GlassDialogBody(dark:Boolean,content:@Composable ColumnScope.()->Unit) {
     GlassCard(dark=dark) {
         Column(verticalArrangement=Arrangement.spacedBy(9.dp),content=content)
