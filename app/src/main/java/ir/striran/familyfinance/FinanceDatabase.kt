@@ -15,9 +15,20 @@ data class FinanceTransaction(
 )
 data class Budget(val id: Long, val category: String, val limitAmount: Long, val spent: Long)
 data class SavingGoal(val id: Long, val title: String, val target: Long, val saved: Long)
+data class FamilyDebt(
+    val id: Long, val title: String, val totalAmount: Long, val installmentCount: Int,
+    val firstDueAt: Long, val note: String, val paidAmount: Long,
+    val paidInstallments: Int, val nextDueAt: Long?
+) {
+    val remainingAmount: Long get() = (totalAmount - paidAmount).coerceAtLeast(0L)
+}
+data class DebtInstallment(
+    val id: Long, val debtId: Long, val number: Int, val amount: Long,
+    val dueAt: Long, val paidAt: Long?
+)
 private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 3) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 4) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
@@ -26,6 +37,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         db.execSQL("CREATE INDEX idx_transactions_category_type_date ON transactions(category,type,created_at)")
         db.execSQL("CREATE TABLE budgets(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL UNIQUE, limit_amount INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE goals(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0)")
+        createDebtTables(db)
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
         db.execSQL("INSERT INTO accounts(member_id,name,balance) VALUES(1,'کیف پول من',0),(2,'کیف پول همسر',0)")
     }
@@ -216,6 +228,89 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         return statement.executeUpdateDelete() > 0
     }
     fun deleteGoal(id:Long){writableDatabase.delete("goals","id=?",arrayOf(id.toString()))}
-    private fun scalar(sql:String)=readableDatabase.rawQuery(sql,null).use{if(it.moveToFirst())it.getLong(0)else 0L}
+
+    private fun createDebtTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS debts(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, total_amount INTEGER NOT NULL, installment_count INTEGER NOT NULL, first_due_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS debt_installments(id INTEGER PRIMARY KEY AUTOINCREMENT, debt_id INTEGER NOT NULL REFERENCES debts(id) ON DELETE CASCADE, installment_number INTEGER NOT NULL, amount INTEGER NOT NULL, due_at INTEGER NOT NULL, paid_at INTEGER)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_debt_installment_number ON debt_installments(debt_id,installment_number)")
+    }
+
+    fun debts(): List<FamilyDebt> = readableDatabase.rawQuery(
+        "SELECT d.id,d.title,d.total_amount,d.installment_count,d.first_due_at,d.note,COALESCE(SUM(CASE WHEN i.paid_at IS NOT NULL THEN i.amount ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.paid_at IS NOT NULL THEN 1 ELSE 0 END),0),(SELECT MIN(i2.due_at) FROM debt_installments i2 WHERE i2.debt_id=d.id AND i2.paid_at IS NULL) FROM debts d LEFT JOIN debt_installments i ON i.debt_id=d.id GROUP BY d.id ORDER BY d.first_due_at,d.id",
+        null
+    ).use { c -> buildList { while(c.moveToNext()) add(FamilyDebt(c.getLong(0),c.getString(1),c.getLong(2),c.getInt(3),c.getLong(4),c.getString(5),c.getLong(6),c.getInt(7),if(c.isNull(8)) null else c.getLong(8))) } }
+
+    fun debtInstallments(debtId: Long): List<DebtInstallment> = readableDatabase.rawQuery(
+        "SELECT id,debt_id,installment_number,amount,due_at,paid_at FROM debt_installments WHERE debt_id=? ORDER BY installment_number",
+        arrayOf(debtId.toString())
+    ).use { c -> buildList { while(c.moveToNext()) add(DebtInstallment(c.getLong(0),c.getLong(1),c.getInt(2),c.getLong(3),c.getLong(4),if(c.isNull(5)) null else c.getLong(5))) } }
+
+    fun addDebt(title: String, totalAmount: Long, installmentCount: Int, firstDueAt: Long, note: String): Boolean {
+        if(title.isBlank() || totalAmount<=0 || installmentCount !in 1..120 || installmentCount.toLong()>totalAmount || firstDueAt<=0) return false
+        val db=writableDatabase
+        db.beginTransaction()
+        try {
+            val debtId=db.insertOrThrow("debts",null,ContentValues().apply {
+                put("title",title.trim()); put("total_amount",totalAmount); put("installment_count",installmentCount)
+                put("first_due_at",firstDueAt); put("note",note.trim()); put("created_at",System.currentTimeMillis())
+            })
+            val base=totalAmount/installmentCount
+            val remainder=totalAmount%installmentCount
+            for(index in 0 until installmentCount) {
+                val due=Calendar.getInstance().apply {
+                    timeInMillis=firstDueAt
+                    val day=get(Calendar.DAY_OF_MONTH)
+                    set(Calendar.DAY_OF_MONTH,1)
+                    add(Calendar.MONTH,index)
+                    val maxDay=getActualMaximum(Calendar.DAY_OF_MONTH)
+                    set(Calendar.DAY_OF_MONTH,day.coerceAtMost(maxDay))
+                }.timeInMillis
+                db.insertOrThrow("debt_installments",null,ContentValues().apply {
+                    put("debt_id",debtId); put("installment_number",index+1)
+                    put("amount",base+if(index==installmentCount-1) remainder else 0L); put("due_at",due)
+                })
+            }
+            db.setTransactionSuccessful()
+            return true
+        } finally { db.endTransaction() }
+    }
+
+    fun payDebtInstallment(installmentId: Long, accountId: Long): Boolean {
+        val db=writableDatabase
+        db.beginTransaction()
+        try {
+            val installment=db.rawQuery(
+                "SELECT i.debt_id,i.installment_number,i.amount,d.title FROM debt_installments i JOIN debts d ON d.id=i.debt_id WHERE i.id=? AND i.paid_at IS NULL",
+                arrayOf(installmentId.toString())
+            ).use { c -> if(!c.moveToFirst()) return false else arrayOf(c.getLong(0),c.getLong(1),c.getLong(2),c.getString(3)) }
+            val amount=installment[2] as Long
+            val balance=db.rawQuery("SELECT balance FROM accounts WHERE id=?",arrayOf(accountId.toString())).use { c -> if(c.moveToFirst()) c.getLong(0) else return false }
+            if(balance<amount) return false
+            val updatedBalance=checkedBalance(balance,-amount) ?: return false
+            if(db.update("accounts",ContentValues().apply{put("balance",updatedBalance)},"id=?",arrayOf(accountId.toString()))!=1) return false
+            val title=installment[3] as String
+            db.insertOrThrow("transactions",null,ContentValues().apply {
+                put("account_id",accountId); put("type","هزینه"); put("category","قسط بدهی")
+                put("amount",amount); put("note","قسط ${installment[1]} · $title"); put("created_at",System.currentTimeMillis())
+            })
+            if(db.update("debt_installments",ContentValues().apply{put("paid_at",System.currentTimeMillis())},"id=? AND paid_at IS NULL",arrayOf(installmentId.toString()))!=1) return false
+            db.setTransactionSuccessful()
+            return true
+        } finally { db.endTransaction() }
+    }
+
+    fun deleteDebt(id: Long): Boolean {
+        val db=writableDatabase
+        db.beginTransaction()
+        try {
+            val hasPayments=db.rawQuery("SELECT 1 FROM debt_installments WHERE debt_id=? AND paid_at IS NOT NULL LIMIT 1",arrayOf(id.toString())).use{it.moveToFirst()}
+            if(hasPayments) return false
+            db.delete("debt_installments","debt_id=?",arrayOf(id.toString()))
+            val deleted=db.delete("debts","id=?",arrayOf(id.toString()))==1
+            if(deleted) db.setTransactionSuccessful()
+            return deleted
+        } finally { db.endTransaction() }
+    }
+\n    private fun scalar(sql:String)=readableDatabase.rawQuery(sql,null).use{if(it.moveToFirst())it.getLong(0)else 0L}
     private fun monthStart():Long { val c=Calendar.getInstance(); c.set(Calendar.DAY_OF_MONTH,1); c.set(Calendar.HOUR_OF_DAY,0); c.set(Calendar.MINUTE,0); c.set(Calendar.SECOND,0); c.set(Calendar.MILLISECOND,0); return c.timeInMillis }
 }
