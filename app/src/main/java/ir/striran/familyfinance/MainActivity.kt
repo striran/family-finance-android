@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         db = FinanceDatabase(this)
         setContent {
+            var activeDb by remember { mutableStateOf(db) }
             val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
                 if (uri != null) runCatching {
                     val source = getDatabasePath("family_finance.db")
@@ -50,12 +51,13 @@ class MainActivity : ComponentActivity() {
             }
             val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) runCatching {
-                    db.close()
+                    activeDb.close()
                     contentResolver.openInputStream(uri)?.use { input -> getDatabasePath("family_finance.db").outputStream().use { input.copyTo(it) } }
-                    db = FinanceDatabase(this)
+                    activeDb = FinanceDatabase(this)
+                    db = activeDb
                 }
             }
-            FinanceApp(db, onExport = { export.launch("پشتیبان-مدیریت-مالی.db") }, onImport = { import.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")) })
+            FinanceApp(activeDb, onExport = { export.launch("پشتیبان-مدیریت-مالی.db") }, onImport = { import.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")) })
         }
     }
 }
