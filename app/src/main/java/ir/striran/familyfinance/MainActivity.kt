@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -430,6 +433,46 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 @Composable private fun MetricCard(title:String,value:Long,tint:Color,sub:Color,dark:Boolean,mod:Modifier){GlassCard(mod,dark){Text(title,color=sub,fontSize=12.sp);Spacer(Modifier.height(8.dp));Text(money(value),color=tint,fontSize=16.sp,fontWeight=FontWeight.Bold)}}
+@Composable private fun CategoryDonutChart(cats:List<Pair<String,Long>>,fg:Color,sub:Color,dark:Boolean) {
+    val palette = listOf(Color(0xFF8B7CFF),Color(0xFF53D7D0),Color(0xFFFF78B7),Color(0xFFFFC66D),Color(0xFF67A9FF),Color(0xFFB78BFA))
+    val positive = cats.filter { it.second > 0L }.take(6)
+    val total = positive.sumOf { it.second }
+    if (positive.isEmpty() || total <= 0L) return
+    GlassCard(dark=dark) {
+        Text("ترکیب هزینه‌های خانواده",color=fg,fontSize=16.sp,fontWeight=FontWeight.Bold)
+        Text("سهم هر دسته از مجموع هزینه‌های ثبت‌شده",color=sub,fontSize=11.sp)
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(150.dp),contentAlignment=Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val stroke = 22.dp.toPx()
+                    var start = -90f
+                    positive.forEachIndexed { index, item ->
+                        val sweep = item.second.toFloat() / total.toFloat() * 360f
+                        drawArc(color=palette[index % palette.size],startAngle=start,sweepAngle=(sweep-2.2f).coerceAtLeast(0f),useCenter=false,style=Stroke(width=stroke,cap=StrokeCap.Round))
+                        start += sweep
+                    }
+                }
+                Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text("مجموع هزینه",color=sub,fontSize=10.sp)
+                    Text(money(total).replace(" تومان",""),color=fg,fontSize=15.sp,fontWeight=FontWeight.Bold)
+                    Text("تومان",color=sub,fontSize=9.sp)
+                }
+            }
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                positive.forEachIndexed { index,item ->
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Box(Modifier.size(9.dp).background(palette[index % palette.size],RoundedCornerShape(50)))
+                        Spacer(Modifier.width(7.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.first,color=fg,fontSize=10.sp,maxLines=1)
+                            Text("${(item.second.toDouble()*100.0/total).toInt()}٪",color=sub,fontSize=9.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 @Composable private fun TxRow(t:FinanceTransaction,fg:Color,sub:Color,dark:Boolean,onEdit:(()->Unit)?=null,onDelete:(()->Unit)?=null){
     GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Surface(shape=RoundedCornerShape(13.dp),color=(if(t.type=="درآمد") aqua else pink).copy(alpha=.15f)){Icon(if(t.type=="درآمد") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,null,tint=if(t.type=="درآمد") aqua else pink,modifier=Modifier.padding(10.dp))};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(t.category,color=fg,fontWeight=FontWeight.SemiBold);Text("${t.memberName} · ${t.accountName} · ${jalali(t.createdAt)}",color=sub,fontSize=10.sp);if(t.note.isNotBlank())Text(t.note,color=sub,fontSize=11.sp)};Text((if(t.type=="درآمد") "+" else "−")+money(t.amount),color=if(t.type=="درآمد") aqua else pink,fontSize=11.sp,fontWeight=FontWeight.Bold)};if(onEdit!=null&&onDelete!=null){if(t.category=="انتقال وجه"||t.category=="دریافت انتقال"){Text("برای حفظ تراز حساب‌ها، ویرایش و حذف انتقال غیرفعال است.",color=sub,fontSize=10.sp)}else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){TextButton(onClick=onEdit){Text("ویرایش")};TextButton(onClick=onDelete){Text("حذف",color=pink)}}}}
 }
@@ -501,6 +544,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{ScreenHeading("گزارش مالی","نمای کلی درآمد، هزینه و بودجه",fg,sub,dark)}
+        item{CategoryDonutChart(cats,fg,sub,dark)}
         item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
         item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
         item{GlassCard(dark=dark){Text("مانده خالص",color=sub);Text(money(income-expense),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}}
