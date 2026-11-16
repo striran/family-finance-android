@@ -3,6 +3,7 @@ package ir.striran.familyfinance
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
@@ -23,6 +24,12 @@ class InstallmentReminderWorker(
                     description = "یادآوری اقساط عقب‌افتاده و نزدیک سررسید"
                 }
             )
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            applicationContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            db.close()
+            return Result.success()
         }
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (overdue.isNotEmpty()) {
