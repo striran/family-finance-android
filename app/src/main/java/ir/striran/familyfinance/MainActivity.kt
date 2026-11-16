@@ -58,7 +58,8 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         activeDb = FinanceDatabase(this)
                         db = activeDb
-                        Toast.makeText(this, "تهیه پشتیبان ناموفق بود: \${e.localizedMessage ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                        val errorText = e.localizedMessage ?: "خطای ناشناخته"
+                        Toast.makeText(this, "تهیه پشتیبان ناموفق بود: $errorText", Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -91,7 +92,8 @@ class MainActivity : ComponentActivity() {
                         if (rollback.exists()) rollback.copyTo(current, overwrite=true)
                         activeDb = FinanceDatabase(this)
                         db = activeDb
-                        Toast.makeText(this, "بازیابی انجام نشد: \${e.localizedMessage ?: "فایل نامعتبر است"}", Toast.LENGTH_LONG).show()
+                        val errorText = e.localizedMessage ?: "فایل نامعتبر است"
+                        Toast.makeText(this, "بازیابی انجام نشد: $errorText", Toast.LENGTH_LONG).show()
                     } finally {
                         temporary.delete()
                         rollback.delete()
