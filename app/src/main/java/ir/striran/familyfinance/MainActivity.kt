@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
                     val temporary = File(cacheDir, "finance-restore.tmp")
                     val current = getDatabasePath("family_finance.db")
                     val rollback = File(cacheDir, "finance-before-restore.db")
+                    var databaseClosed = false
                     try {
                         contentResolver.openInputStream(uri)?.use { input -> temporary.outputStream().use { input.copyTo(it) } }
                             ?: throw IllegalArgumentException("فایل انتخاب‌شده قابل خواندن نیست")
@@ -76,6 +77,9 @@ class MainActivity : ComponentActivity() {
                         checkDb.close()
                         if (!integrity || !requiredTables) throw IllegalArgumentException("این فایل، پشتیبان معتبر برنامه مدیریت مالی خانواده نیست")
                         activeDb.close()
+                        databaseClosed = true
+                        File(current.path + "-wal").delete()
+                        File(current.path + "-shm").delete()
                         if (current.exists()) current.copyTo(rollback, overwrite=true)
                         temporary.copyTo(current, overwrite=true)
                         activeDb = FinanceDatabase(this)
@@ -83,6 +87,7 @@ class MainActivity : ComponentActivity() {
                         rollback.delete()
                         Toast.makeText(this, "بازیابی اطلاعات با موفقیت انجام شد.", Toast.LENGTH_LONG).show()
                     } catch (e: Exception) {
+                        if (!databaseClosed) activeDb.close()
                         if (rollback.exists()) rollback.copyTo(current, overwrite=true)
                         activeDb = FinanceDatabase(this)
                         db = activeDb
