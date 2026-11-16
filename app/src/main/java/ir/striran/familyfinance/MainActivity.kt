@@ -233,7 +233,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             listOf("همه","درآمد","هزینه").forEach { type -> FilterChip(selected=filter==type,onClick={filter=type},label={Text(type)}) }
         }
         Spacer(Modifier.height(8.dp))
-        Text("\${filtered.size} تراکنش",color=sub,fontSize=12.sp)
+        Text("${filtered.size} تراکنش",color=sub,fontSize=12.sp)
         Spacer(Modifier.height(8.dp))
         if(filtered.isEmpty()) Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text(if(txs.isEmpty())"تراکنشی برای نمایش وجود ندارد." else "نتیجه‌ای برای جست‌وجوی شما پیدا نشد.",color=sub)}
         else LazyColumn(verticalArrangement=Arrangement.spacedBy(9.dp)){items(filtered,key={it.id}){TxRow(it,fg,sub,dark,{onEdit(it)},{onDelete(it)})}}
