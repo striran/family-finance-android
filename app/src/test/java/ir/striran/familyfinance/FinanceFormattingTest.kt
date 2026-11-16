@@ -5,6 +5,13 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FinanceFormattingTest {
+    @Test fun balanceArithmeticRejectsOverflowAndUnderflow() {
+        assertEquals(Long.MAX_VALUE, checkedBalance(Long.MAX_VALUE - 1, 1))
+        assertNull(checkedBalance(Long.MAX_VALUE, 1))
+        assertNull(checkedBalance(Long.MIN_VALUE, -1))
+        assertEquals(50L, checkedBalance(100L, -50L))
+    }
+
     @Test fun formatsPersianDigitsWithThousandsSeparators() {
         assertEquals("1,234,567", formatAmount("۱۲۳۴۵۶۷"))
     }
