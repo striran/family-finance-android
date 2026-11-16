@@ -13,6 +13,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
             val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
                 if (uri != null) {
                     try {
+                        activeDb.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)", null).use { }
                         activeDb.close()
                         val source = getDatabasePath("family_finance.db")
                         contentResolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } }
@@ -77,6 +79,7 @@ class MainActivity : ComponentActivity() {
                         val requiredTables = checkDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('members','accounts','transactions','budgets','goals')", null).use { it.count == 5 }
                         checkDb.close()
                         if (!integrity || !requiredTables) throw IllegalArgumentException("این فایل، پشتیبان معتبر برنامه مدیریت مالی خانواده نیست")
+                        activeDb.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)", null).use { }
                         activeDb.close()
                         databaseClosed = true
                         File(current.path + "-wal").delete()
@@ -200,8 +203,20 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 
 @Composable private fun GlassCard(modifier:Modifier=Modifier,dark:Boolean=true,content:@Composable ColumnScope.()->Unit){
-    val glassBrush = if(dark) Brush.linearGradient(listOf(Color.White.copy(alpha=.14f),Color.White.copy(alpha=.045f),Color(0xFF8D82FF).copy(alpha=.08f))) else Brush.linearGradient(listOf(Color.White.copy(alpha=.98f),Color(0xFFEFF1FF).copy(alpha=.82f)))
-    Card(modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(25.dp),colors=CardDefaults.cardColors(containerColor=Color.Transparent),border=BorderStroke(1.dp,if(dark) Color.White.copy(alpha=.22f) else Color.White),elevation=CardDefaults.cardElevation(defaultElevation=if(dark) 5.dp else 2.dp),content={Column(Modifier.fillMaxWidth().background(glassBrush).padding(16.dp),content=content)})
+    val shape = RoundedCornerShape(26.dp)
+    val glassBrush = if(dark)
+        Brush.linearGradient(listOf(Color(0xFF6575A8).copy(alpha=.30f),Color(0xFF26365D).copy(alpha=.20f),Color(0xFF9D91FF).copy(alpha=.13f)))
+    else
+        Brush.linearGradient(listOf(Color.White.copy(alpha=.94f),Color(0xFFE9EDFF).copy(alpha=.76f),Color.White.copy(alpha=.88f)))
+    val rim = if(dark) Color.White.copy(alpha=.28f) else Color.White.copy(alpha=.96f)
+    Box(
+        modifier=modifier.fillMaxWidth().shadow(if(dark) 12.dp else 5.dp,shape,clip=false)
+            .clip(shape).background(glassBrush).border(1.dp,rim,shape)
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .62f else .95f),Color.Transparent))))
+        Column(Modifier.fillMaxWidth().padding(17.dp),content=content)
+        Box(Modifier.align(Alignment.BottomEnd).padding(end=18.dp,bottom=8.dp).size(52.dp,2.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .13f else .35f),Color.Transparent)),RoundedCornerShape(50)))
+    }
 }
 @Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.verticalGradient(if(dark) listOf(Color(0xFF202D58),midnight) else listOf(Color(0xFFE8EAFE),Color(0xFFF5F6FC)))).padding(horizontal=18.dp),contentPadding=PaddingValues(top=22.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
@@ -226,7 +241,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         val matchesType = filter=="همه" || t.type==filter
         matchesQuery && matchesType
     }
-    Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){
+    Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp)){
         Text("تراکنش‌ها",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جست‌وجوی عنوان، حساب یا مبلغ")},leadingIcon={Icon(Icons.Default.Search,null)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text))
@@ -242,10 +257,10 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
-    Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick=onMember){Text("عضو جدید")};OutlinedButton(onClick=onAccount){Text("حساب جدید")};OutlinedButton(onClick=onTransfer){Text("انتقال")}};Spacer(Modifier.height(12.dp));accounts.forEach{a->GlassCard(dark=dark){Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold);Text(money(a.balance),color=aqua,fontSize=19.sp,fontWeight=FontWeight.Bold)}}}
+    Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp)){Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick=onMember){Text("عضو جدید")};OutlinedButton(onClick=onAccount){Text("حساب جدید")};OutlinedButton(onClick=onTransfer){Text("انتقال")}};Spacer(Modifier.height(12.dp));accounts.forEach{a->GlassCard(dark=dark){Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold);Text(money(a.balance),color=aqua,fontSize=19.sp,fontWeight=FontWeight.Bold)}}}
 }
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{Text("گزارش مالی ماه",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
         item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
         item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
@@ -257,7 +272,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 @Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{Text("امکانات بیشتر",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
         item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
