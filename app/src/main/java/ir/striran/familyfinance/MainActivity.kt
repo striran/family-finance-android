@@ -110,6 +110,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var dialog by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<FinanceTransaction?>(null) }
     var selectedGoal by remember { mutableStateOf<SavingGoal?>(null) }
+    var selectedBudget by remember { mutableStateOf<Budget?>(null) }
     var dark by remember { mutableStateOf(true) }
     val balance = remember(refresh) { db.totalBalance() }
     val income = remember(refresh) { db.monthTotal("درآمد") }
@@ -133,8 +134,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 0 -> Dashboard(pad,balance,income,expense,txs.take(5),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
-                3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"})
-                else -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{dark=!dark},onExport,onImport)
+                3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
+                else -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark},onExport,onImport)
             }
         }
         when(dialog) {
@@ -147,6 +148,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "budget" -> BudgetDialog(onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
             "goal" -> GoalDialog(onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
             "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
+            "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},title={Text("حذف هدف")},text={Text("هدف «"+goal.title+"» حذف شود؟")},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
+            "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},title={Text("حذف بودجه")},text={Text("بودجه «"+budget.category+"» حذف شود؟")},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
         }
     }
 }
@@ -176,17 +179,26 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
     Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick=onMember){Text("عضو جدید")};OutlinedButton(onClick=onAccount){Text("حساب جدید")};OutlinedButton(onClick=onTransfer){Text("انتقال")}};Spacer(Modifier.height(12.dp));accounts.forEach{a->GlassCard(dark=dark){Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold);Text(money(a.balance),color=aqua,fontSize=19.sp,fontWeight=FontWeight.Bold)}}}
 }
-@Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("گزارش مالی ماه",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)};item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}};item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}};item{GlassCard(dark=dark){Text("مانده خالص",color=sub);Text(money(income-expense),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}};item{Row(verticalAlignment=Alignment.CenterVertically){Text("هزینه بر اساس دسته",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onBudget){Text("بودجه جدید")}}};if(cats.isEmpty())item{Text("هنوز هزینه‌ای ثبت نشده است.",color=sub)} else items(cats){(name,value)->GlassCard(dark=dark){Row{Text(name,color=fg);Spacer(Modifier.weight(1f));Text(money(value),color=pink,fontWeight=FontWeight.Bold)};LinearProgressIndicator(progress={if(expense>0)value.toFloat()/expense else 0f},modifier=Modifier.fillMaxWidth().padding(top=8.dp))}};item{Text("بودجه‌بندی ماهانه",color=fg,fontWeight=FontWeight.Bold)};if(budgets.isEmpty())item{Text("بودجه‌ای تعریف نشده است.",color=sub)} else items(budgets){b->GlassCard(dark=dark){Text(b.category,color=fg,fontWeight=FontWeight.Bold);Text("مصرف‌شده: ${money(b.spent)} از ${money(b.limitAmount)}",color=sub,fontSize=12.sp);LinearProgressIndicator(progress={ (b.spent.toFloat()/b.limitAmount).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(top=8.dp),color=if(b.spent>b.limitAmount)pink else aqua)}}}
+@Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        item{Text("گزارش مالی ماه",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
+        item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
+        item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}}
+        item{GlassCard(dark=dark){Text("مانده خالص",color=sub);Text(money(income-expense),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}}
+        item{Row(verticalAlignment=Alignment.CenterVertically){Text("هزینه بر اساس دسته",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onBudget){Text("بودجه جدید")}}}
+        if(cats.isEmpty()) item{Text("هنوز هزینه‌ای ثبت نشده است.",color=sub)} else items(cats){(name,value)->GlassCard(dark=dark){Row{Text(name,color=fg);Spacer(Modifier.weight(1f));Text(money(value),color=pink,fontWeight=FontWeight.Bold)};LinearProgressIndicator(progress={if(expense>0)value.toFloat()/expense else 0f},modifier=Modifier.fillMaxWidth().padding(top=8.dp))}}
+        item{Text("بودجه‌بندی ماهانه",color=fg,fontWeight=FontWeight.Bold)}
+        if(budgets.isEmpty()) item{Text("بودجه‌ای تعریف نشده است.",color=sub)} else items(budgets,key={it.id}){b->GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(b.category,color=fg,fontWeight=FontWeight.Bold);Text("مصرف‌شده: "+money(b.spent)+" از "+money(b.limitAmount),color=sub,fontSize=12.sp)};IconButton(onClick={onDeleteBudget(b)}){Icon(Icons.Default.Delete,null,tint=pink)}};LinearProgressIndicator(progress={(b.spent.toFloat()/b.limitAmount).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(top=8.dp),color=if(b.spent>b.limitAmount)pink else aqua)}}
+    }
 }
-@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
+@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
         item{Text("امکانات بیشتر",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
         item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
         item{Row(verticalAlignment=Alignment.CenterVertically){Text("اهداف پس‌انداز",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onGoal){Text("هدف جدید")}}}
         if(goals.isEmpty()) item{Text("هنوز هدفی ثبت نشده است.",color=sub)} else items(goals,key={it.id}){g->
-            GlassCard(dark=dark){Text(g.title,color=fg,fontWeight=FontWeight.Bold);Text("${money(g.saved)} از ${money(g.target)}",color=sub);LinearProgressIndicator(progress={(g.saved.toFloat()/g.target).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(vertical=6.dp));TextButton(onClick={onContribute(g)},enabled=g.saved<g.target){Text(if(g.saved<g.target)"افزودن مبلغ به پس‌انداز" else "هدف تکمیل شده است")}}
+            GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(g.title,color=fg,fontWeight=FontWeight.Bold);Text(money(g.saved)+" از "+money(g.target),color=sub)};IconButton(onClick={onDeleteGoal(g)}){Icon(Icons.Default.Delete,null,tint=pink)}};LinearProgressIndicator(progress={(g.saved.toFloat()/g.target).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(vertical=6.dp));TextButton(onClick={onContribute(g)},enabled=g.saved<g.target){Text(if(g.saved<g.target)"افزودن مبلغ به پس‌انداز" else "هدف تکمیل شده است")}}
         }
     }
 }
