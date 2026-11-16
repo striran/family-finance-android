@@ -16,12 +16,13 @@ data class FinanceTransaction(
 data class Budget(val id: Long, val category: String, val limitAmount: Long, val spent: Long)
 data class SavingGoal(val id: Long, val title: String, val target: Long, val saved: Long)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 2) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, type TEXT NOT NULL, category TEXT NOT NULL, amount INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)")
         db.execSQL("CREATE INDEX idx_transactions_date ON transactions(created_at)")
+        db.execSQL("CREATE INDEX idx_transactions_category_type_date ON transactions(category,type,created_at)")
         db.execSQL("CREATE TABLE budgets(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL UNIQUE, limit_amount INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE goals(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
@@ -32,6 +33,9 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         if (oldVersion < 2) {
             db.execSQL("CREATE TABLE IF NOT EXISTS budgets(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL UNIQUE, limit_amount INTEGER NOT NULL)")
             db.execSQL("CREATE TABLE IF NOT EXISTS goals(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0)")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transactions_category_type_date ON transactions(category,type,created_at)")
         }
     }
 
@@ -63,6 +67,10 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         val db = writableDatabase
         db.beginTransaction()
         try {
+            val currentBalance = db.rawQuery("SELECT balance FROM accounts WHERE id=?", arrayOf(accountId.toString())).use {
+                if (it.moveToFirst()) it.getLong(0) else return false
+            }
+            if (type == "هزینه" && currentBalance < amount) return false
             db.insertOrThrow("transactions", null, ContentValues().apply {
                 put("account_id", accountId); put("type", type); put("category", category.trim())
                 put("amount", amount); put("note", note.trim()); put("created_at", System.currentTimeMillis())
@@ -86,11 +94,11 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             if (!targetExists) return false
             val oldDelta = if (old.second == "درآمد") -old.third else old.third
             db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?", arrayOf(oldDelta, old.first))
-            val newDelta = if (type == "درآمد") amount else -amount
             val targetBalance = db.rawQuery("SELECT balance FROM accounts WHERE id=?", arrayOf(accountId.toString())).use {
                 if (it.moveToFirst()) it.getLong(0) else return false
             }
             if (type == "هزینه" && targetBalance < amount) return false
+            val newDelta = if (type == "درآمد") amount else -amount
             db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?", arrayOf(newDelta, accountId))
             db.update("transactions", ContentValues().apply {
                 put("account_id",accountId); put("type",type); put("category",category.trim())
