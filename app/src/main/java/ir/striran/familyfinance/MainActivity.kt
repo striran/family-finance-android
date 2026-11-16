@@ -68,11 +68,15 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             dailyReminder
         )
-        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+        val smsPermissionMissing = checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED
+        val notificationPermissionMissing = Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (smsPermissionMissing) {
             Toast.makeText(this, "برای شناسایی پیامک‌های بانکی، اجازه دسترسی به پیامک ورودی را تأیید کنید.", Toast.LENGTH_LONG).show()
-            requestPermissions(arrayOf(Manifest.permission.RECEIVE_SMS), 7002)
-        }
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            val requested = if (notificationPermissionMissing) arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.POST_NOTIFICATIONS)
+                else arrayOf(Manifest.permission.RECEIVE_SMS)
+            requestPermissions(requested, 7002)
+        } else if (notificationPermissionMissing) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7001)
         }
         setContent {
