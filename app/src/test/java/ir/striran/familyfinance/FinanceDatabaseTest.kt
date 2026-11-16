@@ -58,6 +58,7 @@ class FinanceDatabaseTest {
     @Test fun editingTransactionReversesOldEffectBeforeApplyingNewEffect() {
         val account = db.accounts().first()
         assertTrue(db.addTransaction(account.id, "درآمد", "حقوق", 1_000, ""))
+        assertTrue(db.addTransaction(account.id, "هزینه", "خرید", 200, ""))
         val tx = db.allTransactions().first()
         assertTrue(db.updateTransaction(tx.id, account.id, "هزینه", "خرید", 300, "اصلاح"))
         assertEquals(700L, db.accounts().first { it.id == account.id }.balance)
