@@ -173,6 +173,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var selectedInstallment by remember { mutableStateOf<DebtInstallment?>(null) }
     var selectedDebt by remember { mutableStateOf<FamilyDebt?>(null) }
     var selectedReceivable by remember { mutableStateOf<FamilyReceivable?>(null) }
+    var selectedRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
     var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
@@ -185,6 +186,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val goals = remember(refresh) { db.goals() }
     val debts = remember(refresh) { db.debts() }
     val receivables = remember(refresh) { db.receivables() }
+    val recurringBills = remember(refresh) { db.recurringBills() }
     val overdueInstallments = remember(refresh) { db.overdueInstallments() }
     val upcomingInstallments = remember(refresh) { db.upcomingInstallments(7) }
     val installmentsByDebt = remember(refresh) { debts.associate { it.id to db.debtInstallments(it.id) } }
@@ -205,7 +207,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
                 4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport)
-                else -> DebtsPage(pad,debts,installmentsByDebt,receivables,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" })
+                else -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
             }
         }
         when(dialog) {
@@ -218,6 +220,9 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "budget" -> BudgetDialog(dark,onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
             "debt" -> DebtDialog(dark,onDismiss={dialog=""},onSave={title,total,count,due,note->db.addDebt(title,total,count,due,note).also{if(it)refresh++}})
             "receivable" -> ReceivableDialog(dark,onDismiss={dialog=""},onSave={person,amount,due,note->db.addReceivable(person,amount,due,note).also{if(it)refresh++}})
+            "recurringBill" -> RecurringBillDialog(dark,onDismiss={dialog=""},onSave={title,category,amount,due,frequency,note->db.addRecurringBill(title,category,amount,due,frequency,note).also{if(it)refresh++}})
+            "payRecurringBill" -> selectedRecurringBill?.let { bill -> PayRecurringBillDialog(bill,accounts,dark,onDismiss={dialog="";selectedRecurringBill=null},onSave={accountId->db.payRecurringBill(bill.id,accountId).also{if(it)refresh++}}) }
+            "deleteRecurringBill" -> selectedRecurringBill?.let { bill -> AlertDialog(onDismissRequest={dialog="";selectedRecurringBill=null},title={Text("حذف هزینه دوره‌ای")},text={Text("«${bill.title}» از فهرست هزینه‌های دوره‌ای حذف شود؟")},confirmButton={TextButton(onClick={db.deleteRecurringBill(bill.id);refresh++;dialog="";selectedRecurringBill=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedRecurringBill=null}){Text("انصراف")}}) }
             "markReceived" -> selectedReceivable?.let { receivable -> AlertDialog(onDismissRequest={dialog="";selectedReceivable=null},title={Text("ثبت دریافت طلب")},text={Text("مبلغ ${money(receivable.amount)} از ${receivable.person} دریافت شده است؟")},confirmButton={TextButton(onClick={if(db.markReceivableReceived(receivable.id))refresh++;dialog="";selectedReceivable=null}){Text("ثبت دریافت")}},dismissButton={TextButton(onClick={dialog="";selectedReceivable=null}){Text("انصراف")}}) }
             "deleteReceivable" -> selectedReceivable?.let { receivable -> AlertDialog(onDismissRequest={dialog="";selectedReceivable=null},title={Text("حذف طلب")},text={Text("طلب ثبت‌شده از ${receivable.person} حذف شود؟")},confirmButton={TextButton(onClick={db.deleteReceivable(receivable.id);refresh++;dialog="";selectedReceivable=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedReceivable=null}){Text("انصراف")}}) }
             "payDebt" -> selectedInstallment?.let { installment -> PayDebtDialog(installment,accounts,dark,onDismiss={dialog="";selectedInstallment=null},onSave={accountId->db.payDebtInstallment(installment.id,accountId).also{if(it)refresh++}}) }
@@ -365,10 +370,11 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 
 @Composable private fun DebtsPage(
     p:PaddingValues, debts:List<FamilyDebt>, installmentsByDebt:Map<Long,List<DebtInstallment>>,
-    receivables:List<FamilyReceivable>, overdue:List<DebtInstallment>, upcoming:List<DebtInstallment>,
+    receivables:List<FamilyReceivable>, recurringBills:List<RecurringBill>, overdue:List<DebtInstallment>, upcoming:List<DebtInstallment>,
     totalDebt:Long, totalReceivables:Long, fg:Color, sub:Color, dark:Boolean,
     onPay:(DebtInstallment)->Unit, onDelete:(FamilyDebt)->Unit, onAddReceivable:()->Unit,
-    onReceive:(FamilyReceivable)->Unit, onDeleteReceivable:(FamilyReceivable)->Unit
+    onReceive:(FamilyReceivable)->Unit, onDeleteReceivable:(FamilyReceivable)->Unit,
+    onAddRecurringBill:()->Unit, onPayRecurringBill:(RecurringBill)->Unit, onDeleteRecurringBill:(RecurringBill)->Unit
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(p)
@@ -385,6 +391,10 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         if(receivables.isEmpty()) item { Text("طلبی ثبت نشده است.",color=sub,fontSize=12.sp) } else items(receivables,key={"r${it.id}"}) { item -> GlassCard(dark=dark) { Row(verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(item.person,color=fg,fontWeight=FontWeight.Bold); Text("${money(item.amount)} · سررسید ${jalali(item.dueAt)}",color=sub,fontSize=11.sp); if(item.note.isNotBlank()) Text(item.note,color=sub,fontSize=10.sp); if(item.receivedAt!=null) Text("دریافت‌شده در ${jalali(item.receivedAt)}",color=aqua,fontSize=10.sp) }; if(item.receivedAt==null) { TextButton(onClick={onReceive(item)}){Text("دریافت شد")}; IconButton(onClick={onDeleteReceivable(item)}){Icon(Icons.Default.Delete,null,tint=pink)} } else Icon(Icons.Default.CheckCircle,null,tint=aqua) } } }
         item { Text("بدهی‌ها و اقساط",color=fg,fontWeight=FontWeight.Bold) }
         if(debts.isEmpty()) item { GlassCard(dark=dark) { Text("هنوز بدهی یا قسطی ثبت نشده است.",color=sub); Text("برای ثبت اولین بدهی، دکمه + را بزنید.",color=sub,fontSize=12.sp) } }
+        item { Row(verticalAlignment=Alignment.CenterVertically) { Text("قبوض و هزینه‌های دوره‌ای",color=fg,fontWeight=FontWeight.Bold); Spacer(Modifier.weight(1f)); TextButton(onClick=onAddRecurringBill){Text("ثبت مورد +")} } }
+        if(recurringBills.isEmpty()) item { Text("هزینه دوره‌ای ثبت نشده است.",color=sub,fontSize=12.sp) }
+        items(recurringBills,key={"bill${it.id}"}) { bill -> GlassCard(dark=dark) { Row(verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(bill.title,color=fg,fontWeight=FontWeight.Bold); Text("${bill.category} · ${money(bill.amount)}",color=sub,fontSize=11.sp); Text("سررسید: ${jalali(bill.dueAt)} · ${bill.frequency}",color=if(bill.dueAt<System.currentTimeMillis())pink else sub,fontSize=11.sp); if(bill.note.isNotBlank()) Text(bill.note,color=sub,fontSize=10.sp) }; IconButton(onClick={onDeleteRecurringBill(bill)}){Icon(Icons.Default.Delete,null,tint=pink)} }; Button(onClick={onPayRecurringBill(bill)},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=violet)){Text("ثبت پرداخت و انتقال سررسید بعدی")} } }
+        item { Text("بدهی‌ها و اقساط",color=fg,fontWeight=FontWeight.Bold) }
         items(debts,key={it.id}) { debt ->
             val installments=installmentsByDebt[debt.id].orEmpty()
             var expanded by remember(debt.id) { mutableStateOf(false) }
@@ -454,6 +464,46 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         }) { Text("ثبت بدهی") }},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}}
     )
+}
+
+@Composable private fun RecurringBillDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,String,Long,Long,String,String)->Boolean) {
+    val context=LocalContext.current
+    var title by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("قبوض خدماتی") }
+    var amount by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var frequency by remember { mutableStateOf("ماهانه") }
+    var due by remember { mutableLongStateOf(java.util.Calendar.getInstance().apply{add(java.util.Calendar.DAY_OF_YEAR,1)}.timeInMillis) }
+    var error by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF7F8FF),title={Text("ثبت هزینه دوره‌ای",color=Color.White)},
+        text={GlassDialogBody(dark=dark){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+            OutText(title,{title=it;error=false},"عنوان (مثلاً اینترنت یا برق)")
+            OutText(category,{category=it;error=false},"دسته‌بندی")
+            OutText(amount,{amount=formatAmount(it);error=false},"مبلغ به تومان",numeric=true)
+            Text("تکرار پرداخت",color=muted)
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("هفتگی","ماهانه","سالانه").forEach{f->FilterChip(selected=frequency==f,onClick={frequency=f},label={Text(f)})}}
+            OutlinedButton(onClick={val cal=java.util.Calendar.getInstance().apply{timeInMillis=due};DatePickerDialog(context,{_,y,m,d->due=java.util.Calendar.getInstance().apply{set(y,m,d,12,0,0);set(java.util.Calendar.MILLISECOND,0)}.timeInMillis},cal.get(java.util.Calendar.YEAR),cal.get(java.util.Calendar.MONTH),cal.get(java.util.Calendar.DAY_OF_MONTH)).show()},modifier=Modifier.fillMaxWidth()){Text("اولین سررسید: ${jalali(due)}")}
+            OutText(note,{note=it},"توضیحات (اختیاری)")
+            if(error)Text("عنوان، دسته‌بندی، مبلغ و تاریخ را بررسی کنید.",color=pink)
+        }}},
+        confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&onSave(title,category,v,due,frequency,note))onDismiss()else error=true}){Text("ثبت هزینه")}},
+        dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
+}
+
+@Composable private fun PayRecurringBillDialog(bill:RecurringBill,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long)->Boolean) {
+    var accountId by remember{mutableLongStateOf(accounts.firstOrNull()?.id?:0L)}
+    var error by remember{mutableStateOf(false)}
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF7F8FF),title={Text("ثبت پرداخت ${bill.title}",color=Color.White)},
+        text={GlassDialogBody(dark=dark){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Text("مبلغ: ${money(bill.amount)}",color=Color.White,fontWeight=FontWeight.Bold)
+            Text("سررسید فعلی: ${jalali(bill.dueAt)}",color=muted,fontSize=12.sp)
+            Text("برداشت از حساب:",color=muted)
+            accounts.forEach{a->FilterChip(selected=accountId==a.id,onClick={accountId=a.id},label={Text("${a.memberName} · ${a.name} · ${money(a.balance)}")})}
+            if(error)Text("پرداخت ثبت نشد؛ موجودی حساب را بررسی کنید.",color=pink)
+            Text("پس از پرداخت، تراکنش هزینه ثبت و سررسید بعدی به‌صورت خودکار محاسبه می‌شود.",color=muted,fontSize=11.sp)
+        }}},
+        confirmButton={TextButton(onClick={if(accounts.any{it.id==accountId}&&onSave(accountId))onDismiss()else error=true}){Text("تأیید پرداخت")}},
+        dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
 
 @Composable private fun ReceivableDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,Long,Long,String)->Boolean) {
