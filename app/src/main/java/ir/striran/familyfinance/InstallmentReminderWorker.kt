@@ -18,6 +18,7 @@ class InstallmentReminderWorker(
         val db = FinanceDatabase(applicationContext)
         val overdue = db.overdueInstallments()
         val upcoming = db.upcomingInstallments(3)
+        val dueBills = db.dueRecurringBills()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = applicationContext.getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(
@@ -61,6 +62,20 @@ class InstallmentReminderWorker(
                     .build()
             )
         }
+        if (dueBills.isNotEmpty()) {
+            val amount = dueBills.sumOf { it.amount }
+            manager.notify(
+                RECURRING_BILLS_NOTIFICATION_ID,
+                NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle("قبض‌ها و هزینه‌های دوره‌ای")
+                    .setContentText("${dueBills.size} پرداخت دوره‌ای سررسید شده است.")
+                    .setStyle(NotificationCompat.BigTextStyle().bigText("موارد سررسیدشده: ${dueBills.size} · مجموع مبلغ: ${amount} تومان · برای ثبت پرداخت وارد برنامه شوید."))
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        }
         db.close()
         Result.success()
         } catch (_: Exception) {
@@ -72,5 +87,6 @@ class InstallmentReminderWorker(
         const val CHANNEL_ID = "family_installment_reminders"
         const val OVERDUE_NOTIFICATION_ID = 5101
         const val UPCOMING_NOTIFICATION_ID = 5102
+        const val RECURRING_BILLS_NOTIFICATION_ID = 5103
     }
 }
