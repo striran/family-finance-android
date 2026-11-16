@@ -661,9 +661,9 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
         item{ScreenHeading("امکانات بیشتر","مدیریت بخش‌های مالی و تنظیمات",fg,sub,dark)}
         item{Text("بخش‌های اصلی",color=fg,fontWeight=FontWeight.Bold,fontSize=15.sp)}
         item{Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
-            GlassCard(Modifier.weight(1f).clickable(onClick=onAccounts),dark){Icon(Icons.Default.AccountBalance,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("حساب‌ها و اعضا",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
-            GlassCard(Modifier.weight(1f).clickable(onClick=onDebts),dark){Icon(Icons.Default.EventAvailable,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("وام و اقساط",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
-            GlassCard(Modifier.weight(1f).clickable(onClick=onCheques),dark){Icon(Icons.Default.Description,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("مدیریت چک",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+            GlassCard(Modifier.weight(1f).clickable(onClick=onAccounts),dark){Icon(Icons.Default.AccountBalance,contentDescription=null,tint=violet);Spacer(Modifier.height(7.dp));Text("حساب‌ها و اعضا",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+            GlassCard(Modifier.weight(1f).clickable(onClick=onDebts),dark){Icon(Icons.Default.EventAvailable,contentDescription=null,tint=violet);Spacer(Modifier.height(7.dp));Text("وام و اقساط",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+            GlassCard(Modifier.weight(1f).clickable(onClick=onCheques),dark){Icon(Icons.Default.Description,contentDescription=null,tint=violet);Spacer(Modifier.height(7.dp));Text("مدیریت چک",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
         }}
         item{GlassCard(dark=dark){Text("اعضای خانواده، حساب‌ها، وام‌ها، چک‌ها و سایر ابزارهای مالی از این بخش در دسترس هستند.",color=sub,fontSize=11.sp)}}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
