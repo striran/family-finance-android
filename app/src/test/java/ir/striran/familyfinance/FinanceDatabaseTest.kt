@@ -197,6 +197,43 @@ class FinanceDatabaseTest {
         assertEquals(300L, db.totalRemainingDebt())
     }
 
+    @Test fun recurringBillPaymentUpdatesBalanceTransactionAndNextDueDate() {
+        val account=db.accounts().first()
+        assertTrue(db.addTransaction(account.id,"درآمد","حقوق",2_000_000L,""))
+        val now=System.currentTimeMillis()
+        val due=java.util.Calendar.getInstance().apply{timeInMillis=now;add(java.util.Calendar.DAY_OF_YEAR,-1)}.timeInMillis
+        assertTrue(db.addRecurringBill("قبض اینترنت","اینترنت",300_000L,due,"ماهانه",""))
+        val bill=db.dueRecurringBills(now).single()
+        assertTrue(db.payRecurringBill(bill.id,account.id,now))
+        assertEquals(1_700_000L,db.accounts().first{it.id==account.id}.balance)
+        assertEquals("اینترنت",db.allTransactions().first().category)
+        assertTrue(db.dueRecurringBills(now).isEmpty())
+        val next=db.recurringBills().single()
+        val expected=java.util.Calendar.getInstance().apply{timeInMillis=due;add(java.util.Calendar.MONTH,1)}.timeInMillis
+        assertEquals(expected,next.dueAt)
+        assertFalse(db.payRecurringBill(bill.id,account.id,now))
+    }
+
+    @Test fun recurringBillPaymentFailsSafelyWhenBalanceIsInsufficient() {
+        val due=System.currentTimeMillis()-1_000L
+        assertTrue(db.addRecurringBill("قبض برق","برق",500_000L,due,"ماهانه",""))
+        val bill=db.recurringBills().single()
+        assertFalse(db.payRecurringBill(bill.id,db.accounts().first().id))
+        assertEquals(due,db.recurringBills().single().dueAt)
+        assertTrue(db.allTransactions().isEmpty())
+    }
+
+    @Test fun recurringBillRejectsInvalidInputsAndSupportsDeletion() {
+        val due=System.currentTimeMillis()+86_400_000L
+        assertFalse(db.addRecurringBill("","برق",100L,due,"ماهانه",""))
+        assertFalse(db.addRecurringBill("قبض","",100L,due,"ماهانه",""))
+        assertFalse(db.addRecurringBill("قبض","برق",0L,due,"ماهانه",""))
+        assertFalse(db.addRecurringBill("قبض","برق",100L,due,"روزانه",""))
+        assertTrue(db.addRecurringBill("قبض","برق",100L,due,"هفتگی",""))
+        assertTrue(db.deleteRecurringBill(db.recurringBills().single().id))
+        assertTrue(db.recurringBills().isEmpty())
+    }
+
     @Test fun upgradingVersionThreeDatabasePreservesExistingDataAndAddsDebtTables() {
         db.close()
         context.deleteDatabase("family_finance.db")
