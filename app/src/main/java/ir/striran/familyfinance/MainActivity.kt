@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -119,7 +121,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val sub = if(dark) muted else Color(0xFF626B88)
     MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=Color(0xFFC4BDFF),secondary=aqua,background=midnight,surface=panel) else lightColorScheme(primary=violet,secondary=Color(0xFF168F8A))) {
         Scaffold(containerColor=bg, bottomBar={
-            NavigationBar(containerColor=if(dark) Color(0xFF171F3B) else Color.White) {
+            NavigationBar(modifier=Modifier.padding(horizontal=12.dp, vertical=7.dp).clip(RoundedCornerShape(26.dp)).border(1.dp,if(dark)Color.White.copy(alpha=.16f) else Color(0xFFDDE2F3),RoundedCornerShape(26.dp)),containerColor=if(dark) Color(0xFF273252).copy(alpha=.94f) else Color.White.copy(alpha=.96f),tonalElevation=0.dp) {
                 val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر")
                 val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz)
                 labels.forEachIndexed { i,label -> NavigationBarItem(selected=page==i,onClick={page=i},icon={Icon(icons[i],null)},label={Text(label,fontSize=10.sp)}) }
@@ -148,7 +150,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 
 @Composable private fun GlassCard(modifier:Modifier=Modifier,dark:Boolean=true,content:@Composable ColumnScope.()->Unit){
-    Card(modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(23.dp),colors=CardDefaults.cardColors(containerColor=if(dark) Color.White.copy(alpha=.075f) else Color.White),border=BorderStroke(1.dp,if(dark) Color.White.copy(alpha=.10f) else Color(0xFFE1E5F2)),content= {Column(Modifier.padding(16.dp),content=content)})
+    val glassBrush = if(dark) Brush.linearGradient(listOf(Color.White.copy(alpha=.14f),Color.White.copy(alpha=.045f),Color(0xFF8D82FF).copy(alpha=.08f))) else Brush.linearGradient(listOf(Color.White.copy(alpha=.98f),Color(0xFFEFF1FF).copy(alpha=.82f)))
+    Card(modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(25.dp),colors=CardDefaults.cardColors(containerColor=Color.Transparent),border=BorderStroke(1.dp,if(dark) Color.White.copy(alpha=.22f) else Color.White),elevation=CardDefaults.cardElevation(defaultElevation=if(dark) 5.dp else 2.dp),content={Column(Modifier.fillMaxWidth().background(glassBrush).padding(16.dp),content=content)})
 }
 @Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.verticalGradient(if(dark) listOf(Color(0xFF202D58),midnight) else listOf(Color(0xFFE8EAFE),Color(0xFFF5F6FC)))).padding(horizontal=18.dp),contentPadding=PaddingValues(top=22.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
