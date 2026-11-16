@@ -561,7 +561,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
             Text(subtitle,color=sub,fontSize=11.sp)
         }
         Surface(shape=RoundedCornerShape(14.dp),color=if(dark)Color.White.copy(alpha=.09f) else violet.copy(alpha=.09f),border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.13f) else violet.copy(alpha=.12f))){
-            Text("FAMILY",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),color=if(dark)Color(0xFFD4CEFF) else violet,fontSize=9.sp,fontWeight=FontWeight.Bold)
+            Text("پارمیس‌نما",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),color=if(dark)Color(0xFFE1C7F0) else violet,fontSize=9.sp,fontWeight=FontWeight.Bold)
         }
     }
 }
@@ -597,7 +597,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     }
 }
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4)))).padding(horizontal=16.dp),contentPadding=PaddingValues(top=16.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(horizontal=16.dp),contentPadding=PaddingValues(top=16.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
         item { ScreenHeading("حساب‌های خانواده","مدیریت موجودی و حساب اعضا",fg,sub,dark) }
         item { GlassCard(dark=dark) {
             Text("مدیریت حساب‌ها",color=fg,fontWeight=FontWeight.Bold)
