@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,17 +45,51 @@ class MainActivity : ComponentActivity() {
         setContent {
             var activeDb by remember { mutableStateOf(db) }
             val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-                if (uri != null) runCatching {
-                    val source = getDatabasePath("family_finance.db")
-                    contentResolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } }
+                if (uri != null) {
+                    try {
+                        activeDb.close()
+                        val source = getDatabasePath("family_finance.db")
+                        contentResolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } }
+                            ?: throw IllegalStateException("امکان نوشتن فایل پشتیبان وجود ندارد")
+                        activeDb = FinanceDatabase(this)
+                        db = activeDb
+                        Toast.makeText(this, "پشتیبان با موفقیت ذخیره شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        activeDb = FinanceDatabase(this)
+                        db = activeDb
+                        Toast.makeText(this, "تهیه پشتیبان ناموفق بود: \${e.localizedMessage ?: "خطای ناشناخته"}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
             val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                if (uri != null) runCatching {
-                    activeDb.close()
-                    contentResolver.openInputStream(uri)?.use { input -> getDatabasePath("family_finance.db").outputStream().use { input.copyTo(it) } }
-                    activeDb = FinanceDatabase(this)
-                    db = activeDb
+                if (uri != null) {
+                    val temporary = File(cacheDir, "finance-restore.tmp")
+                    val current = getDatabasePath("family_finance.db")
+                    val rollback = File(cacheDir, "finance-before-restore.db")
+                    try {
+                        contentResolver.openInputStream(uri)?.use { input -> temporary.outputStream().use { input.copyTo(it) } }
+                            ?: throw IllegalArgumentException("فایل انتخاب‌شده قابل خواندن نیست")
+                        val checkDb = android.database.sqlite.SQLiteDatabase.openDatabase(temporary.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+                        val integrity = checkDb.rawQuery("PRAGMA integrity_check", null).use { cursor -> cursor.moveToFirst() && cursor.getString(0) == "ok" }
+                        val requiredTables = checkDb.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('members','accounts','transactions','budgets','goals')", null).use { it.count == 5 }
+                        checkDb.close()
+                        if (!integrity || !requiredTables) throw IllegalArgumentException("این فایل، پشتیبان معتبر برنامه مدیریت مالی خانواده نیست")
+                        activeDb.close()
+                        if (current.exists()) current.copyTo(rollback, overwrite=true)
+                        temporary.copyTo(current, overwrite=true)
+                        activeDb = FinanceDatabase(this)
+                        db = activeDb
+                        rollback.delete()
+                        Toast.makeText(this, "بازیابی اطلاعات با موفقیت انجام شد.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        if (rollback.exists()) rollback.copyTo(current, overwrite=true)
+                        activeDb = FinanceDatabase(this)
+                        db = activeDb
+                        Toast.makeText(this, "بازیابی انجام نشد: \${e.localizedMessage ?: "فایل نامعتبر است"}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        temporary.delete()
+                        rollback.delete()
+                    }
                 }
             }
             FinanceApp(activeDb, onExport = { export.launch("پشتیبان-مدیریت-مالی.db") }, onImport = { import.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")) })
