@@ -34,9 +34,10 @@ data class RecurringBill(
     val id: Long, val title: String, val category: String, val amount: Long,
     val dueAt: Long, val frequency: String, val note: String
 )
+data class FamilyCheque(val id: Long, val type: String, val number: String, val bank: String, val person: String, val amount: Long, val dueAt: Long, val status: String, val note: String)
 private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 7) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 8) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
@@ -49,6 +50,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         createReceivableTables(db)
         createRecurringBillTables(db)
         createCategoryTable(db)
+        createChequeTable(db)
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
         db.execSQL("INSERT INTO accounts(member_id,name,balance) VALUES(1,'کیف پول من',0),(2,'کیف پول همسر',0)")
     }
@@ -65,6 +67,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         if (oldVersion < 5) createReceivableTables(db)
         if (oldVersion < 6) createRecurringBillTables(db)
         if (oldVersion < 7) createCategoryTable(db)
+        if (oldVersion < 8) createChequeTable(db)
     }
 
     private fun createCategoryTable(db: SQLiteDatabase) {
@@ -78,6 +81,31 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             db.insertWithOnConflict("categories", null, ContentValues().apply { put("type",type); put("name",name) }, SQLiteDatabase.CONFLICT_IGNORE)
         } }
     }
+
+    private fun createChequeTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS cheques(id INTEGER PRIMARY KEY AUTOINCREMENT,type TEXT NOT NULL,number TEXT NOT NULL,bank TEXT NOT NULL,person TEXT NOT NULL,amount INTEGER NOT NULL,due_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'در انتظار',note TEXT NOT NULL DEFAULT '')")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_cheques_due ON cheques(due_at,status)")
+    }
+
+    fun cheques(): List<FamilyCheque> = readableDatabase.rawQuery(
+        "SELECT id,type,number,bank,person,amount,due_at,status,note FROM cheques ORDER BY CASE WHEN status='در انتظار' THEN 0 ELSE 1 END,due_at",
+        null
+    ).use { c -> buildList { while(c.moveToNext()) add(FamilyCheque(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getLong(5),c.getString(6),c.getString(7),c.getString(8))) } }
+
+    fun addCheque(type:String,number:String,bank:String,person:String,amount:Long,dueAt:Long,note:String):Boolean {
+        if(type !in listOf("دریافتی","پرداختی") || number.isBlank() || bank.isBlank() || person.isBlank() || amount<=0 || dueAt<=0) return false
+        return writableDatabase.insert("cheques",null,ContentValues().apply {
+            put("type",type);put("number",number.trim());put("bank",bank.trim());put("person",person.trim())
+            put("amount",amount);put("due_at",dueAt);put("status","در انتظار");put("note",note.trim())
+        })>0
+    }
+
+    fun updateChequeStatus(id:Long,status:String):Boolean {
+        if(status !in listOf("در انتظار","وصول شد","پاس شد","برگشت خورد","باطل شد")) return false
+        return writableDatabase.update("cheques",ContentValues().apply{put("status",status)},"id=?",arrayOf(id.toString()))==1
+    }
+
+    fun deleteCheque(id:Long):Boolean = writableDatabase.delete("cheques","id=?",arrayOf(id.toString()))==1
 
     fun categories(type: String): List<String> = readableDatabase.rawQuery(
         "SELECT name FROM categories WHERE type=? ORDER BY id", arrayOf(type)
