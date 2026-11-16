@@ -12,8 +12,27 @@ android {
         applicationId = "ir.striran.familyfinance"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            val hasReleaseKey = !System.getenv("ANDROID_KEYSTORE_PATH").isNullOrBlank()
+            if (hasReleaseKey) signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures { compose = true }
