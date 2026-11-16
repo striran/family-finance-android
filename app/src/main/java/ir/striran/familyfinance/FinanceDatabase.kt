@@ -50,6 +50,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         if (oldVersion < 3) {
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_transactions_category_type_date ON transactions(category,type,created_at)")
         }
+        if (oldVersion < 4) createDebtTables(db)
     }
 
     fun members(): List<FinanceMember> = readableDatabase.rawQuery("SELECT id,name FROM members ORDER BY id", null).use { c ->
