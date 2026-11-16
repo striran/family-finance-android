@@ -92,6 +92,14 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         null
     ).use { c -> buildList { while(c.moveToNext()) add(FamilyCheque(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getLong(5),c.getLong(6),c.getString(7),c.getString(8))) } }
 
+    fun dueCheques(days:Int=3,now:Long=System.currentTimeMillis()):List<FamilyCheque> {
+        val end=now+days.coerceAtLeast(0)*86_400_000L
+        return readableDatabase.rawQuery(
+            "SELECT id,type,number,bank,person,amount,due_at,status,note FROM cheques WHERE status='در انتظار' AND due_at<=? ORDER BY due_at",
+            arrayOf(end.toString())
+        ).use { c -> buildList { while(c.moveToNext()) add(FamilyCheque(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getLong(5),c.getLong(6),c.getString(7),c.getString(8))) } }
+    }
+
     fun addCheque(type:String,number:String,bank:String,person:String,amount:Long,dueAt:Long,note:String):Boolean {
         if(type !in listOf("دریافتی","پرداختی") || number.isBlank() || bank.isBlank() || person.isBlank() || amount<=0 || dueAt<=0) return false
         return writableDatabase.insert("cheques",null,ContentValues().apply {
