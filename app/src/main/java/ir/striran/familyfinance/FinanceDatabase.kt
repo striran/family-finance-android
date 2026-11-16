@@ -167,8 +167,9 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
     }
     fun contributeGoal(id:Long,amount:Long):Boolean {
         if(amount<=0)return false
-        val changed = writableDatabase.update("goals", ContentValues().apply { put("saved", amount) }, "id=? AND saved + ? <= target", arrayOf(id.toString(), amount.toString()))
-        return changed > 0
+        val statement = writableDatabase.compileStatement("UPDATE goals SET saved=saved+? WHERE id=? AND saved+?<=target")
+        statement.bindLong(1, amount); statement.bindLong(2, id); statement.bindLong(3, amount)
+        return statement.executeUpdateDelete() > 0
     }
     fun deleteGoal(id:Long){writableDatabase.delete("goals","id=?",arrayOf(id.toString()))}
     private fun scalar(sql:String)=readableDatabase.rawQuery(sql,null).use{if(it.moveToFirst())it.getLong(0)else 0L}
