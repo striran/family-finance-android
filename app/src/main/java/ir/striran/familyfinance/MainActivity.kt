@@ -561,7 +561,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
             Text(subtitle,color=sub,fontSize=11.sp)
         }
         Surface(shape=RoundedCornerShape(14.dp),color=if(dark)Color.White.copy(alpha=.09f) else violet.copy(alpha=.09f),border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.13f) else violet.copy(alpha=.12f))){
-            Text("پارمیس‌نما",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),color=if(dark)Color(0xFFE1C7F0) else violet,fontSize=9.sp,fontWeight=FontWeight.Bold)
+            Text("مالی",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),color=if(dark)Color(0xFFE1C7F0) else violet,fontSize=9.sp,fontWeight=FontWeight.Bold)
         }
     }
 }
