@@ -28,9 +28,14 @@ android {
         }
     }
     buildTypes {
+        getByName("debug") {
+            val keyPath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!keyPath.isNullOrBlank() && file(keyPath).exists()) signingConfig = signingConfigs.getByName("release")
+        }
         getByName("release") {
             isMinifyEnabled = false
-            val hasReleaseKey = !System.getenv("ANDROID_KEYSTORE_PATH").isNullOrBlank()
+            val keyPath = System.getenv("ANDROID_KEYSTORE_PATH")
+            val hasReleaseKey = !keyPath.isNullOrBlank() && file(keyPath).exists()
             if (hasReleaseKey) signingConfig = signingConfigs.getByName("release")
         }
     }
