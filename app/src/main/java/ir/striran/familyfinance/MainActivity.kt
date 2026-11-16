@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
                         ?: throw IllegalStateException("امکان ذخیره فایل Excel وجود ندارد")
                     Toast.makeText(this, "گزارش سازگار با Excel ذخیره شد.", Toast.LENGTH_LONG).show()
                 } catch (e: Exception) {
-                    Toast.makeText(this, "خروجی Excel ناموفق بود: \${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "خروجی Excel ناموفق بود: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                 }
             }
             val exportPdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -139,13 +139,13 @@ class MainActivity : ComponentActivity() {
                         val page = document.startPage(pageInfo)
                         val reportText = buildString {
                             appendLine("گزارش مالی خانواده")
-                            appendLine("تاریخ تهیه: \${jalali(System.currentTimeMillis())}")
-                            appendLine("صفحه \${index + 1} از \${pages.size}")
+                            appendLine("تاریخ تهیه: ${jalali(System.currentTimeMillis())}")
+                            appendLine("صفحه ${index + 1} از ${pages.size}")
                             appendLine("────────────────────────────────────────")
                             pageRows.forEach { t ->
-                                appendLine("\${jalali(t.createdAt)} | \${t.type} | \${t.category}")
-                                appendLine("\${money(t.amount)} | \${t.accountName} | \${t.memberName}")
-                                if (t.note.isNotBlank()) appendLine("توضیحات: \${t.note}")
+                                appendLine("${jalali(t.createdAt)} | ${t.type} | ${t.category}")
+                                appendLine("${money(t.amount)} | ${t.accountName} | ${t.memberName}")
+                                if (t.note.isNotBlank()) appendLine("توضیحات: ${t.note}")
                                 appendLine("────────────────────────────────────────")
                             }
                         }
@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
                     document.close()
                     Toast.makeText(this, "گزارش PDF ذخیره شد.", Toast.LENGTH_LONG).show()
                 } catch (e: Exception) {
-                    Toast.makeText(this, "خروجی PDF ناموفق بود: \${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "خروجی PDF ناموفق بود: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                 }
             }
             val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
