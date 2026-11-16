@@ -15,6 +15,7 @@ data class FinanceTransaction(
 )
 data class Budget(val id: Long, val category: String, val limitAmount: Long, val spent: Long)
 data class SavingGoal(val id: Long, val title: String, val target: Long, val saved: Long)
+private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
 class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
@@ -121,18 +122,35 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             return true
         } finally { db.endTransaction() }
     }
-    fun deleteTransaction(id: Long) {
+    fun deleteTransaction(id: Long): Boolean {
         val db = writableDatabase
         db.beginTransaction()
         try {
-            db.rawQuery("SELECT account_id,type,amount FROM transactions WHERE id=?", arrayOf(id.toString())).use { c ->
-                if (c.moveToFirst()) {
-                    val delta = if (c.getString(1) == "درآمد") -c.getLong(2) else c.getLong(2)
-                    db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?", arrayOf(delta,c.getLong(0)))
-                }
+            val transaction = db.rawQuery(
+                "SELECT account_id,type,amount,category FROM transactions WHERE id=?",
+                arrayOf(id.toString())
+            ).use { c ->
+                if (!c.moveToFirst()) return false
+                TransactionForDeletion(c.getLong(0), c.getString(1), c.getLong(2), c.getString(3))
             }
-            db.delete("transactions","id=?",arrayOf(id.toString()))
+            // Transfer rows are a linked pair; deleting only one side would corrupt account balances.
+            if (transaction.category == "انتقال وجه" || transaction.category == "دریافت انتقال") return false
+            val currentBalance = db.rawQuery(
+                "SELECT balance FROM accounts WHERE id=?",
+                arrayOf(transaction.accountId.toString())
+            ).use { c -> if (c.moveToFirst()) c.getLong(0) else return false }
+            val delta = if (transaction.type == "درآمد") -transaction.amount else transaction.amount
+            val restoredBalance = checkedBalance(currentBalance, delta) ?: return false
+            val updated = db.update(
+                "accounts",
+                ContentValues().apply { put("balance", restoredBalance) },
+                "id=?",
+                arrayOf(transaction.accountId.toString())
+            )
+            if (updated != 1) return false
+            if (db.delete("transactions", "id=?", arrayOf(id.toString())) != 1) return false
             db.setTransactionSuccessful()
+            return true
         } finally { db.endTransaction() }
     }
     fun transfer(fromId: Long, toId: Long, amount: Long, note: String): Boolean {
