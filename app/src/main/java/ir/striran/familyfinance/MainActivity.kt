@@ -146,6 +146,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var selected by remember { mutableStateOf<FinanceTransaction?>(null) }
     var selectedGoal by remember { mutableStateOf<SavingGoal?>(null) }
     var selectedBudget by remember { mutableStateOf<Budget?>(null) }
+    var selectedInstallment by remember { mutableStateOf<DebtInstallment?>(null) }
+    var selectedDebt by remember { mutableStateOf<FamilyDebt?>(null) }
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
     var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
@@ -156,6 +158,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val accounts = remember(refresh) { db.accounts() }
     val budgets = remember(refresh) { db.budgets() }
     val goals = remember(refresh) { db.goals() }
+    val debts = remember(refresh) { db.debts() }
+    val installmentsByDebt = remember(refresh) { debts.associate { it.id to db.debtInstallments(it.id) } }
     val bg = if(dark) midnight else Color(0xFFF1F3FC)
     val fg = if(dark) Color.White else Color(0xFF1D2340)
     val sub = if(dark) muted else Color(0xFF626B88)
@@ -406,7 +410,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             }
         }},
         confirmButton={TextButton(onClick={
-            val amount=parseAmount(total); val installments=count.toIntOrNull()
+            val amount=parseAmount(total); val installments=normalizeDigits(count).toIntOrNull()
             if(amount!=null&&installments!=null&&onSave(title,amount,installments,due,note)) onDismiss() else error=true
         }) { Text("ثبت بدهی") }},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}}
