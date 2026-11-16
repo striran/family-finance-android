@@ -26,9 +26,13 @@ data class DebtInstallment(
     val id: Long, val debtId: Long, val number: Int, val amount: Long,
     val dueAt: Long, val paidAt: Long?
 )
+data class FamilyReceivable(
+    val id: Long, val person: String, val amount: Long, val dueAt: Long,
+    val note: String, val receivedAt: Long?
+)
 private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 4) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 5) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
@@ -51,6 +55,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_transactions_category_type_date ON transactions(category,type,created_at)")
         }
         if (oldVersion < 4) createDebtTables(db)
+        if (oldVersion < 5) createReceivableTables(db)
     }
 
     fun members(): List<FinanceMember> = readableDatabase.rawQuery("SELECT id,name FROM members ORDER BY id", null).use { c ->
@@ -312,6 +317,53 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             return deleted
         } finally { db.endTransaction() }
     }
+
+    private fun createReceivableTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS receivables(id INTEGER PRIMARY KEY AUTOINCREMENT, person TEXT NOT NULL, amount INTEGER NOT NULL, due_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, received_at INTEGER)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_receivables_due ON receivables(due_at,received_at)")
+    }
+
+    fun receivables(): List<FamilyReceivable> = readableDatabase.rawQuery(
+        "SELECT id,person,amount,due_at,note,received_at FROM receivables ORDER BY received_at IS NOT NULL,due_at,id", null
+    ).use { c -> buildList { while(c.moveToNext()) add(FamilyReceivable(c.getLong(0),c.getString(1),c.getLong(2),c.getLong(3),c.getString(4),if(c.isNull(5)) null else c.getLong(5))) } }
+
+    fun addReceivable(person: String, amount: Long, dueAt: Long, note: String): Boolean {
+        if(person.isBlank() || amount<=0 || dueAt<=0) return false
+        return writableDatabase.insert("receivables",null,ContentValues().apply {
+            put("person",person.trim()); put("amount",amount); put("due_at",dueAt)
+            put("note",note.trim()); put("created_at",System.currentTimeMillis())
+        }) > 0
+    }
+
+    fun markReceivableReceived(id: Long): Boolean = writableDatabase.update(
+        "receivables",ContentValues().apply { put("received_at",System.currentTimeMillis()) },
+        "id=? AND received_at IS NULL",arrayOf(id.toString())
+    ) == 1
+
+    fun deleteReceivable(id: Long): Boolean =
+        writableDatabase.delete("receivables","id=?",arrayOf(id.toString())) == 1
+
+    fun overdueInstallments(now: Long = System.currentTimeMillis()): List<DebtInstallment> =
+        readableDatabase.rawQuery(
+            "SELECT id,debt_id,installment_number,amount,due_at,paid_at FROM debt_installments WHERE paid_at IS NULL AND due_at<? ORDER BY due_at",
+            arrayOf(now.toString())
+        ).use { c -> buildList { while(c.moveToNext()) add(DebtInstallment(c.getLong(0),c.getLong(1),c.getInt(2),c.getLong(3),c.getLong(4),if(c.isNull(5)) null else c.getLong(5))) } }
+
+    fun upcomingInstallments(days: Int = 3, now: Long = System.currentTimeMillis()): List<DebtInstallment> {
+        if(days !in 1..30) return emptyList()
+        val until = now + days.toLong() * 24L * 60L * 60L * 1000L
+        return readableDatabase.rawQuery(
+            "SELECT id,debt_id,installment_number,amount,due_at,paid_at FROM debt_installments WHERE paid_at IS NULL AND due_at>=? AND due_at<=? ORDER BY due_at",
+            arrayOf(now.toString(),until.toString())
+        ).use { c -> buildList { while(c.moveToNext()) add(DebtInstallment(c.getLong(0),c.getLong(1),c.getInt(2),c.getLong(3),c.getLong(4),if(c.isNull(5)) null else c.getLong(5))) } }
+    }
+
+    fun totalRemainingDebt(): Long = scalar(
+        "SELECT COALESCE(SUM(i.amount),0) FROM debt_installments i WHERE i.paid_at IS NULL"
+    )
+    fun totalPendingReceivables(): Long = scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM receivables WHERE received_at IS NULL"
+    )
 
     private fun scalar(sql:String)=readableDatabase.rawQuery(sql,null).use{if(it.moveToFirst())it.getLong(0)else 0L}
     private fun monthStart():Long { val c=Calendar.getInstance(); c.set(Calendar.DAY_OF_MONTH,1); c.set(Calendar.HOUR_OF_DAY,0); c.set(Calendar.MINUTE,0); c.set(Calendar.SECOND,0); c.set(Calendar.MILLISECOND,0); return c.timeInMillis }
