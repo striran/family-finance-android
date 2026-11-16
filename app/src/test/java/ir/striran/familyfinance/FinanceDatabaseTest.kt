@@ -165,4 +165,25 @@ class FinanceDatabaseTest {
         assertTrue(db.debts().isEmpty())
     }
 
+    @Test fun upgradingVersionThreeDatabasePreservesExistingDataAndAddsDebtTables() {
+        db.close()
+        context.deleteDatabase("family_finance.db")
+        val file=context.getDatabasePath("family_finance.db")
+        file.parentFile?.mkdirs()
+        val old=android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file,null)
+        old.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL)")
+        old.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT,member_id INTEGER NOT NULL,name TEXT NOT NULL,balance INTEGER NOT NULL DEFAULT 0)")
+        old.execSQL("CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT,account_id INTEGER NOT NULL,type TEXT NOT NULL,category TEXT NOT NULL,amount INTEGER NOT NULL,note TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL)")
+        old.execSQL("CREATE TABLE budgets(id INTEGER PRIMARY KEY AUTOINCREMENT,category TEXT NOT NULL UNIQUE,limit_amount INTEGER NOT NULL)")
+        old.execSQL("CREATE TABLE goals(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,target INTEGER NOT NULL,saved INTEGER NOT NULL DEFAULT 0)")
+        old.execSQL("INSERT INTO members(id,name) VALUES(1,'من')")
+        old.execSQL("INSERT INTO accounts(id,member_id,name,balance) VALUES(1,1,'کیف پول من',7500)")
+        old.version=3
+        old.close()
+        db=FinanceDatabase(context)
+        assertEquals(7_500L,db.accounts().single().balance)
+        assertTrue(db.addDebt("بدهی قدیمی",1_000L,2,System.currentTimeMillis(),""))
+        assertEquals(2,db.debtInstallments(db.debts().single().id).size)
+    }
+
 }
