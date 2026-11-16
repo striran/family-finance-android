@@ -36,7 +36,7 @@ data class RecurringBill(
 )
 private data class TransactionForDeletion(val accountId: Long, val type: String, val amount: Long, val category: String)
 
-class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 6) {
+class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_finance.db", null, 7) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE members(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
         db.execSQL("CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)")
@@ -48,6 +48,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         createDebtTables(db)
         createReceivableTables(db)
         createRecurringBillTables(db)
+        createCategoryTable(db)
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
         db.execSQL("INSERT INTO accounts(member_id,name,balance) VALUES(1,'کیف پول من',0),(2,'کیف پول همسر',0)")
     }
@@ -63,6 +64,34 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         if (oldVersion < 4) createDebtTables(db)
         if (oldVersion < 5) createReceivableTables(db)
         if (oldVersion < 6) createRecurringBillTables(db)
+        if (oldVersion < 7) createCategoryTable(db)
+    }
+
+    private fun createCategoryTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS categories(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, name TEXT NOT NULL, UNIQUE(type,name))")
+        val defaults = mapOf(
+            "هزینه" to listOf("خوراک و مواد غذایی","رستوران و کافی‌شاپ","خرید روزانه","میوه و سبزیجات","نان و لبنیات","حمل‌ونقل و تاکسی","بنزین و سوخت","تعمیر و نگهداری خودرو","قبوض آب، برق و گاز","تلفن و اینترنت","اجاره و شارژ ساختمان","لوازم منزل","پوشاک و کفش","بهداشت و مراقبت شخصی","درمان و دارو","آموزش و کتاب","شهریه مدرسه","تفریح و سرگرمی","سفر و اقامت","هدیه و مناسبت‌ها","اقساط و وام","بیمه","مالیات و عوارض","هزینه‌های کودک","حیوانات خانگی","سایر هزینه‌ها"),
+            "درآمد" to listOf("حقوق و دستمزد","اضافه‌کار و پاداش","درآمد همسر","درآمد شغل دوم","فروش کالا","درآمد خدمات","اجاره دریافتی","سود سرمایه‌گذاری","هدیه نقدی","یارانه و کمک‌هزینه","بازپرداخت طلب","سایر درآمدها")
+        )
+        defaults.forEach { (type, names) -> names.forEach { name ->
+            db.insertWithOnConflict("categories", null, ContentValues().apply { put("type",type); put("name",name) }, SQLiteDatabase.CONFLICT_IGNORE)
+        } }
+    }
+
+    fun categories(type: String): List<String> = readableDatabase.rawQuery(
+        "SELECT name FROM categories WHERE type=? ORDER BY id", arrayOf(type)
+    ).use { c -> buildList { while(c.moveToNext()) add(c.getString(0)) } }
+
+    fun addCategory(type: String, name: String): Boolean {
+        if (type !in listOf("درآمد","هزینه") || name.isBlank() || name.trim().length > 40) return false
+        return writableDatabase.insertWithOnConflict("categories", null, ContentValues().apply {
+            put("type",type); put("name",name.trim())
+        }, SQLiteDatabase.CONFLICT_IGNORE) > 0
+    }
+
+    fun deleteCategory(type: String, name: String): Boolean {
+        if (readableDatabase.rawQuery("SELECT 1 FROM transactions WHERE type=? AND category=? LIMIT 1", arrayOf(type,name)).use { it.moveToFirst() }) return false
+        return writableDatabase.delete("categories","type=? AND name=?",arrayOf(type,name)) > 0
     }
 
     fun members(): List<FinanceMember> = readableDatabase.rawQuery("SELECT id,name FROM members ORDER BY id", null).use { c ->
