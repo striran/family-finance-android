@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                 if (uri != null) try {
                     val rows = activeDb.allTransactions()
                     val document = PdfDocument()
-                    val pages = rows.chunked(22).ifEmpty { listOf(emptyList()) }
+                    val pages = rows.chunked(14).ifEmpty { listOf(emptyList()) }
                     pages.forEachIndexed { index, pageRows ->
                         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, index + 1).create()
                         val page = document.startPage(pageInfo)
