@@ -42,6 +42,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         db.execSQL("CREATE TABLE budgets(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL UNIQUE, limit_amount INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE goals(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0)")
         createDebtTables(db)
+        createReceivableTables(db)
         db.execSQL("INSERT INTO members(name) VALUES('من'),('همسر')")
         db.execSQL("INSERT INTO accounts(member_id,name,balance) VALUES(1,'کیف پول من',0),(2,'کیف پول همسر',0)")
     }
