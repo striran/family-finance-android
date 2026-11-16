@@ -175,17 +175,17 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             }
         }
         when(dialog) {
-            "transaction" -> TransactionDialog(accounts,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
-            "edit" -> selected?.let { EditDialog(it,accounts,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
-            "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=panel,title={Text("حذف تراکنش",color=Color.White)},text={GlassDialogBody { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteTransaction(it.id);refresh++;dialog="";selected=null}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
-            "transfer" -> TransferDialog(accounts,onDismiss={dialog=""},onSave={a,b,v,n->db.transfer(a,b,v,n).also{if(it)refresh++}})
-            "member" -> SimpleNameDialog("افزودن عضو خانواده","نام عضو",onDismiss={dialog=""},onSave={db.addMember(it).also{ok->if(ok)refresh++}})
-            "account" -> AccountDialog(db.members(),onDismiss={dialog=""},onSave={a,n->db.addAccount(a,n).also{if(it)refresh++}})
-            "budget" -> BudgetDialog(onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
-            "goal" -> GoalDialog(onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
-            "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
-            "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=panel,title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
-            "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=panel,title={Text("حذف بودجه",color=Color.White)},text={GlassDialogBody { Text("بودجه «"+budget.category+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
+            "transaction" -> TransactionDialog(accounts,dark,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
+            "edit" -> selected?.let { EditDialog(it,accounts,dark,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
+            "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف تراکنش",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteTransaction(it.id);refresh++;dialog="";selected=null}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
+            "transfer" -> TransferDialog(accounts,dark,onDismiss={dialog=""},onSave={a,b,v,n->db.transfer(a,b,v,n).also{if(it)refresh++}})
+            "member" -> SimpleNameDialog("افزودن عضو خانواده","نام عضو",dark,onDismiss={dialog=""},onSave={db.addMember(it).also{ok->if(ok)refresh++}})
+            "account" -> AccountDialog(db.members(),dark,onDismiss={dialog=""},onSave={a,n->db.addAccount(a,n).also{if(it)refresh++}})
+            "budget" -> BudgetDialog(dark,onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
+            "goal" -> GoalDialog(dark,onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
+            "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,dark,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
+            "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
+            "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف بودجه",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("بودجه «"+budget.category+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
         }
     }
 }
@@ -298,23 +298,23 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         }
     }
 }
-@Composable private fun GlassDialogBody(content:@Composable ColumnScope.()->Unit) {
-    GlassCard(dark=true) {
+@Composable private fun GlassDialogBody(dark:Boolean,content:@Composable ColumnScope.()->Unit) {
+    GlassCard(dark=dark) {
         Column(verticalArrangement=Arrangement.spacedBy(9.dp),content=content)
     }
 }
 
-@Composable private fun TransactionDialog(accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ثبت تراکنش",null,accounts,onDismiss,onSave)
-@Composable private fun EditDialog(t:FinanceTransaction,accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ویرایش تراکنش",t,accounts,onDismiss,onSave)
-@Composable private fun TransactionForm(title:String,existing:FinanceTransaction?,accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean){
+@Composable private fun TransactionDialog(accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ثبت تراکنش",null,accounts,dark,onDismiss,onSave)
+@Composable private fun EditDialog(t:FinanceTransaction,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ویرایش تراکنش",t,accounts,dark,onDismiss,onSave)
+@Composable private fun TransactionForm(title:String,existing:FinanceTransaction?,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean){
     var type by remember{mutableStateOf(existing?.type?:"هزینه")}
     var category by remember{mutableStateOf(existing?.category?:"خرید روزانه")}
     var amount by remember{mutableStateOf(existing?.amount?.let { formatAmount(it.toString()) }?:"")}
     var note by remember{mutableStateOf(existing?.note?:"")}
     var account by remember{mutableStateOf(existing?.accountId?:accounts.firstOrNull()?.id?:0L)}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text(title,color=Color.White)},
-        text={GlassDialogBody {
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text(title,color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Row { FilterChip(type=="درآمد",{type="درآمد"},{Text("درآمد")}); Spacer(Modifier.width(8.dp)); FilterChip(type=="هزینه",{type="هزینه"},{Text("هزینه")}) }
                 Text("حساب",color=muted)
@@ -328,14 +328,14 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&accounts.any{it.id==account}&&onSave(account,type,category,v,note))onDismiss() else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun TransferDialog(accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,Long,Long,String)->Boolean){
+@Composable private fun TransferDialog(accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,Long,Long,String)->Boolean){
     var from by remember{mutableStateOf(accounts.firstOrNull()?.id?:0L)}
     var to by remember{mutableStateOf(accounts.getOrNull(1)?.id?:0L)}
     var amount by remember{mutableStateOf("")}
     var note by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text("انتقال وجه بین حساب‌ها",color=Color.White)},
-        text={GlassDialogBody {
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("انتقال وجه بین حساب‌ها",color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Text("حساب مبدأ",color=muted)
                 accounts.forEach{a->FilterChip(from==a.id,{from=a.id},{Text("${a.memberName} · ${a.name}")})}
@@ -349,46 +349,46 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
         confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&from!=to&&onSave(from,to,v,note))onDismiss()else error=true}){Text("انتقال")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun SimpleNameDialog(title:String,label:String,onDismiss:()->Unit,onSave:(String)->Boolean){
+@Composable private fun SimpleNameDialog(title:String,label:String,dark:Boolean,onDismiss:()->Unit,onSave:(String)->Boolean){
     var v by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text(title,color=Color.White)},
-        text={GlassDialogBody { Column { OutText(v,{v=it;error=false},label); if(error) Text("مقدار معتبر وارد کنید.",color=pink) } }},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text(title,color=Color.White)},
+        text={GlassDialogBody(dark=dark) { Column { OutText(v,{v=it;error=false},label); if(error) Text("مقدار معتبر وارد کنید.",color=pink) } }},
         confirmButton={TextButton(onClick={if(onSave(v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun AccountDialog(members:List<FinanceMember>,onDismiss:()->Unit,onSave:(Long,String)->Boolean){
+@Composable private fun AccountDialog(members:List<FinanceMember>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String)->Boolean){
     var id by remember{mutableStateOf(members.firstOrNull()?.id?:0L)}
     var name by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text("افزودن حساب",color=Color.White)},
-        text={GlassDialogBody { Column { members.forEach{FilterChip(id==it.id,{id=it.id},{Text(it.name)})}; OutText(name,{name=it;error=false},"نام حساب"); if(error)Text("نام حساب و عضو را بررسی کنید.",color=pink) } }},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("افزودن حساب",color=Color.White)},
+        text={GlassDialogBody(dark=dark) { Column { members.forEach{FilterChip(id==it.id,{id=it.id},{Text(it.name)})}; OutText(name,{name=it;error=false},"نام حساب"); if(error)Text("نام حساب و عضو را بررسی کنید.",color=pink) } }},
         confirmButton={TextButton(onClick={if(onSave(id,name))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun BudgetDialog(onDismiss:()->Unit,onSave:(String,Long)->Boolean){
+@Composable private fun BudgetDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,Long)->Boolean){
     var c by remember{mutableStateOf("خرید روزانه")}
     var a by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text("تعریف بودجه ماهانه",color=Color.White)},
-        text={GlassDialogBody { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(c,{c=it;error=false},"دسته‌بندی");OutText(a,{a=formatAmount(it);error=false},"سقف بودجه به تومان",numeric=true);if(error)Text("دسته‌بندی و مبلغ معتبر وارد کنید.",color=pink)} }},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("تعریف بودجه ماهانه",color=Color.White)},
+        text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(c,{c=it;error=false},"دسته‌بندی");OutText(a,{a=formatAmount(it);error=false},"سقف بودجه به تومان",numeric=true);if(error)Text("دسته‌بندی و مبلغ معتبر وارد کنید.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(a);if(v!=null&&v>0&&onSave(c,v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun GoalDialog(onDismiss:()->Unit,onSave:(String,Long)->Boolean){
+@Composable private fun GoalDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,Long)->Boolean){
     var t by remember{mutableStateOf("")}
     var a by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text("هدف پس‌انداز جدید",color=Color.White)},
-        text={GlassDialogBody { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(t,{t=it;error=false},"عنوان هدف");OutText(a,{a=formatAmount(it);error=false},"مبلغ هدف به تومان",numeric=true);if(error)Text("عنوان هدف و مبلغ معتبر وارد کنید.",color=pink)} }},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("هدف پس‌انداز جدید",color=Color.White)},
+        text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(t,{t=it;error=false},"عنوان هدف");OutText(a,{a=formatAmount(it);error=false},"مبلغ هدف به تومان",numeric=true);if(error)Text("عنوان هدف و مبلغ معتبر وارد کنید.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(a);if(t.isNotBlank()&&v!=null&&v>0&&onSave(t.trim(),v))onDismiss()else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
-@Composable private fun GoalContributionDialog(goal:SavingGoal,onDismiss:()->Unit,onSave:(Long)->Boolean){
+@Composable private fun GoalContributionDialog(goal:SavingGoal,dark:Boolean,onDismiss:()->Unit,onSave:(Long)->Boolean){
     var amount by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
-    AlertDialog(onDismissRequest=onDismiss,containerColor=panel,title={Text("افزودن به هدف پس‌انداز",color=Color.White)},
-        text={GlassDialogBody { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("هدف: ${goal.title}");Text("باقی‌مانده: ${money((goal.target-goal.saved).coerceAtLeast(0))}");OutText(amount,{amount=formatAmount(it);error=false},"مبلغ واریزی به تومان",numeric=true);if(error)Text("مبلغ معتبر وارد کنید و از مبلغ باقی‌مانده بیشتر نباشد.",color=pink)} }},
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("افزودن به هدف پس‌انداز",color=Color.White)},
+        text={GlassDialogBody(dark=dark) { Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("هدف: ${goal.title}");Text("باقی‌مانده: ${money((goal.target-goal.saved).coerceAtLeast(0))}");OutText(amount,{amount=formatAmount(it);error=false},"مبلغ واریزی به تومان",numeric=true);if(error)Text("مبلغ معتبر وارد کنید و از مبلغ باقی‌مانده بیشتر نباشد.",color=pink)} }},
         confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&v<=goal.target-goal.saved&&onSave(v))onDismiss()else error=true}){Text("ثبت پس‌انداز")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
