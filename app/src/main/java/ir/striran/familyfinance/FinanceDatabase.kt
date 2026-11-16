@@ -158,6 +158,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         writableDatabase.insertWithOnConflict("budgets",null,v,SQLiteDatabase.CONFLICT_REPLACE)
         return true
     }
+    fun deleteBudget(id: Long): Boolean = writableDatabase.delete("budgets", "id=?", arrayOf(id.toString())) > 0
     fun goals(): List<SavingGoal> = readableDatabase.rawQuery("SELECT id,title,target,saved FROM goals ORDER BY id DESC",null).use { c ->
         buildList { while(c.moveToNext()) add(SavingGoal(c.getLong(0),c.getString(1),c.getLong(2),c.getLong(3))) }
     }
