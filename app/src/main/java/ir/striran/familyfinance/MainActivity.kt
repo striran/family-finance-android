@@ -105,6 +105,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var refresh by remember { mutableIntStateOf(0) }
     var dialog by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<FinanceTransaction?>(null) }
+    var selectedGoal by remember { mutableStateOf<SavingGoal?>(null) }
     var dark by remember { mutableStateOf(true) }
     val balance = remember(refresh) { db.totalBalance() }
     val income = remember(refresh) { db.monthTotal("درآمد") }
@@ -129,7 +130,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"})
-                else -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{dark=!dark},onExport,onImport)
+                else -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{dark=!dark},onExport,onImport)
             }
         }
         when(dialog) {
@@ -141,6 +142,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "account" -> AccountDialog(db.members(),onDismiss={dialog=""},onSave={a,n->db.addAccount(a,n).also{if(it)refresh++}})
             "budget" -> BudgetDialog(onDismiss={dialog=""},onSave={c,v->db.saveBudget(c,v).also{if(it)refresh++}})
             "goal" -> GoalDialog(onDismiss={dialog=""},onSave={t,v->db.addGoal(t,v).also{if(it)refresh++}})
+            "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
         }
     }
 }
@@ -172,10 +174,17 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("گزارش مالی ماه",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)};item{GlassCard(dark=dark){Text("درآمد",color=sub);Text(money(income),color=aqua,fontSize=20.sp,fontWeight=FontWeight.Bold)}};item{GlassCard(dark=dark){Text("هزینه",color=sub);Text(money(expense),color=pink,fontSize=20.sp,fontWeight=FontWeight.Bold)}};item{GlassCard(dark=dark){Text("مانده خالص",color=sub);Text(money(income-expense),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}};item{Row(verticalAlignment=Alignment.CenterVertically){Text("هزینه بر اساس دسته",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onBudget){Text("بودجه جدید")}}};if(cats.isEmpty())item{Text("هنوز هزینه‌ای ثبت نشده است.",color=sub)} else items(cats){(name,value)->GlassCard(dark=dark){Row{Text(name,color=fg);Spacer(Modifier.weight(1f));Text(money(value),color=pink,fontWeight=FontWeight.Bold)};LinearProgressIndicator(progress={if(expense>0)value.toFloat()/expense else 0f},modifier=Modifier.fillMaxWidth().padding(top=8.dp))}};item{Text("بودجه‌بندی ماهانه",color=fg,fontWeight=FontWeight.Bold)};if(budgets.isEmpty())item{Text("بودجه‌ای تعریف نشده است.",color=sub)} else items(budgets){b->GlassCard(dark=dark){Text(b.category,color=fg,fontWeight=FontWeight.Bold);Text("مصرف‌شده: ${money(b.spent)} از ${money(b.limitAmount)}",color=sub,fontSize=12.sp);LinearProgressIndicator(progress={ (b.spent.toFloat()/b.limitAmount).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(top=8.dp),color=if(b.spent>b.limitAmount)pink else aqua)}}}
 }
-@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("امکانات بیشتر",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)};item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}};item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}};item{Row(verticalAlignment=Alignment.CenterVertically){Text("اهداف پس‌انداز",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onGoal){Text("هدف جدید")}}};if(goals.isEmpty())item{Text("هنوز هدفی ثبت نشده است.",color=sub)} else items(goals,key={it.id}){g->GlassCard(dark=dark){Text(g.title,color=fg,fontWeight=FontWeight.Bold);Text("${money(g.saved)} از ${money(g.target)}",color=sub);LinearProgressIndicator(progress={(g.saved.toFloat()/g.target).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(vertical=6.dp));Text("برای افزایش مبلغ پس‌انداز، هدف را از ابتدا با مبلغ جدید تعریف کنید.",color=sub,fontSize=11.sp)}}}
+@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit){
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        item{Text("امکانات بیشتر",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)}
+        item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
+        item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
+        item{Row(verticalAlignment=Alignment.CenterVertically){Text("اهداف پس‌انداز",color=fg,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));TextButton(onClick=onGoal){Text("هدف جدید")}}}
+        if(goals.isEmpty()) item{Text("هنوز هدفی ثبت نشده است.",color=sub)} else items(goals,key={it.id}){g->
+            GlassCard(dark=dark){Text(g.title,color=fg,fontWeight=FontWeight.Bold);Text("${money(g.saved)} از ${money(g.target)}",color=sub);LinearProgressIndicator(progress={(g.saved.toFloat()/g.target).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().padding(vertical=6.dp));TextButton(onClick={onContribute(g)},enabled=g.saved<g.target){Text(if(g.saved<g.target)"افزودن مبلغ به پس‌انداز" else "هدف تکمیل شده است")}}
+        }
+    }
 }
-
 @Composable private fun TransactionDialog(accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ثبت تراکنش",null,accounts,onDismiss,onSave)
 @Composable private fun EditDialog(t:FinanceTransaction,accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ویرایش تراکنش",t,accounts,onDismiss,onSave)
 @Composable private fun TransactionForm(title:String,existing:FinanceTransaction?,accounts:List<FinanceAccount>,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean){
@@ -199,5 +208,10 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var a by remember{mutableStateOf("")}
     var error by remember{mutableStateOf(false)}
     AlertDialog(onDismissRequest=onDismiss,title={Text("هدف پس‌انداز جدید")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutText(t,{t=it;error=false},"عنوان هدف");OutText(a,{a=formatAmount(it);error=false},"مبلغ هدف به تومان",numeric=true);if(error)Text("عنوان هدف و مبلغ معتبر وارد کنید.",color=pink)}},confirmButton={TextButton(onClick={val v=parseAmount(a);if(t.isNotBlank()&&v!=null&&v>0&&onSave(t.trim(),v))onDismiss()else error=true}){Text("ذخیره")}},dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
+}
+@Composable private fun GoalContributionDialog(goal:SavingGoal,onDismiss:()->Unit,onSave:(Long)->Boolean){
+    var amount by remember{mutableStateOf("")}
+    var error by remember{mutableStateOf(false)}
+    AlertDialog(onDismissRequest=onDismiss,title={Text("افزودن به هدف پس‌انداز")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("هدف: ${goal.title}");Text("باقی‌مانده: ${money((goal.target-goal.saved).coerceAtLeast(0))}");OutText(amount,{amount=formatAmount(it);error=false},"مبلغ واریزی به تومان",numeric=true);if(error)Text("مبلغ معتبر وارد کنید و از مبلغ باقی‌مانده بیشتر نباشد.",color=pink)}},confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&v<=goal.target-goal.saved&&onSave(v))onDismiss()else error=true}){Text("ثبت پس‌انداز")}},dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
 @Composable private fun OutText(value:String,onChange:(String)->Unit,label:String,numeric:Boolean=false){OutlinedTextField(value=value,onValueChange=onChange,label={Text(label)},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=if(numeric)KeyboardType.Number else KeyboardType.Text))}
