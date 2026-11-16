@@ -28,7 +28,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: family-finance-v0.5.0-debug-apk
+          name: family-finance-v0.6.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -49,6 +49,11 @@ jobs:
           java-version: '17'
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Report release signing configuration
+        if: env.ANDROID_KEYSTORE_BASE64 == '' || env.ANDROID_KEYSTORE_PASSWORD == '' || env.ANDROID_KEY_ALIAS == '' || env.ANDROID_KEY_PASSWORD == ''
+        run: |
+          echo "## Signed release not produced" >> "$GITHUB_STEP_SUMMARY"
+          echo "The four Android signing secrets are not configured. Debug APK and tests remain independent and will complete normally. A permanent release signing key must be generated and stored securely by the repository owner; do not commit it to the repository." >> "$GITHUB_STEP_SUMMARY"
       - name: Restore release keystore
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         env:
@@ -64,6 +69,6 @@ jobs:
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         uses: actions/upload-artifact@v4
         with:
-          name: family-finance-v0.5.0-release-apk
+          name: family-finance-v0.6.0-release-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
