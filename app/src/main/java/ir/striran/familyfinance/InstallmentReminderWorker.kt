@@ -13,7 +13,8 @@ class InstallmentReminderWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = try {
+    override suspend fun doWork(): Result {
+        return try {
         val db = FinanceDatabase(applicationContext)
         val overdue = db.overdueInstallments()
         val upcoming = db.upcomingInstallments(3)
@@ -62,8 +63,9 @@ class InstallmentReminderWorker(
         }
         db.close()
         Result.success()
-    } catch (_: Exception) {
-        Result.retry()
+        } catch (_: Exception) {
+            Result.retry()
+        }
     }
 
     companion object {
