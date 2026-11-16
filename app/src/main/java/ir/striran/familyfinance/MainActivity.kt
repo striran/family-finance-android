@@ -209,7 +209,27 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Surface(shape=RoundedCornerShape(13.dp),color=(if(t.type=="درآمد") aqua else pink).copy(alpha=.15f)){Icon(if(t.type=="درآمد") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,null,tint=if(t.type=="درآمد") aqua else pink,modifier=Modifier.padding(10.dp))};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(t.category,color=fg,fontWeight=FontWeight.SemiBold);Text("${t.memberName} · ${t.accountName} · ${jalali(t.createdAt)}",color=sub,fontSize=10.sp);if(t.note.isNotBlank())Text(t.note,color=sub,fontSize=11.sp)};Text((if(t.type=="درآمد") "+" else "−")+money(t.amount),color=if(t.type=="درآمد") aqua else pink,fontSize=11.sp,fontWeight=FontWeight.Bold)};if(onEdit!=null&&onDelete!=null){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){TextButton(onClick=onEdit){Text("ویرایش")};TextButton(onClick=onDelete){Text("حذف",color=pink)}}}}
 }
 @Composable private fun TransactionsPage(p:PaddingValues,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onEdit:(FinanceTransaction)->Unit,onDelete:(FinanceTransaction)->Unit){
-    Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){Text("تراکنش‌ها",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));if(txs.isEmpty())Text("تراکنشی برای نمایش وجود ندارد.",color=sub) else LazyColumn(verticalArrangement=Arrangement.spacedBy(9.dp)){items(txs,key={it.id}){TxRow(it,fg,sub,dark,{onEdit(it)},{onDelete(it)})}}}
+    var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("همه") }
+    val filtered = txs.filter { t ->
+        val matchesQuery = query.isBlank() || listOf(t.category,t.note,t.accountName,t.memberName,money(t.amount)).any { it.contains(query.trim(),ignoreCase=true) }
+        val matchesType = filter=="همه" || t.type==filter
+        matchesQuery && matchesType
+    }
+    Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){
+        Text("تراکنش‌ها",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جست‌وجوی عنوان، حساب یا مبلغ")},leadingIcon={Icon(Icons.Default.Search,null)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Text))
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){
+            listOf("همه","درآمد","هزینه").forEach { type -> FilterChip(selected=filter==type,onClick={filter=type},label={Text(type)}) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("\${filtered.size} تراکنش",color=sub,fontSize=12.sp)
+        Spacer(Modifier.height(8.dp))
+        if(filtered.isEmpty()) Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text(if(txs.isEmpty())"تراکنشی برای نمایش وجود ندارد." else "نتیجه‌ای برای جست‌وجوی شما پیدا نشد.",color=sub)}
+        else LazyColumn(verticalArrangement=Arrangement.spacedBy(9.dp)){items(filtered,key={it.id}){TxRow(it,fg,sub,dark,{onEdit(it)},{onDelete(it)})}}
+    }
 }
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
     Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF1F3FC)).padding(16.dp)){Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick=onMember){Text("عضو جدید")};OutlinedButton(onClick=onAccount){Text("حساب جدید")};OutlinedButton(onClick=onTransfer){Text("انتقال")}};Spacer(Modifier.height(12.dp));accounts.forEach{a->GlassCard(dark=dark){Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold);Text(money(a.balance),color=aqua,fontSize=19.sp,fontWeight=FontWeight.Bold)}}}
