@@ -56,9 +56,7 @@ class BankSmsReceiver : BroadcastReceiver() {
             else -> return
         }
         val amountPattern = Regex("(?:مبلغ|برداشت|واریز|خرید)\\s*[:：]?\\s*([0-9][0-9,٬.]*)")
-        val rawAmount = amountPattern.find(normalized)?.groupValues?.getOrNull(1)
-            ?: Regex("[0-9][0-9,٬.]{2,}").find(normalized)?.value
-            ?: return
+        val rawAmount = amountPattern.find(normalized)?.groupValues?.getOrNull(1) ?: return
         val numeric = rawAmount.replace(",", "").replace("٬", "").replace(".", "").toLongOrNull() ?: return
         val amount = if (lower.contains("ریال") || lower.contains("rial")) numeric / 10L else numeric
         if (amount <= 0L || amount > 10_000_000_000_000L) return
