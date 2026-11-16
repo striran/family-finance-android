@@ -245,7 +245,27 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 @Composable private fun AccountsPage(p:PaddingValues,accounts:List<FinanceAccount>,fg:Color,sub:Color,dark:Boolean,onMember:()->Unit,onAccount:()->Unit,onTransfer:()->Unit){
-    Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp)){Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp));Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick=onMember){Text("عضو جدید")};OutlinedButton(onClick=onAccount){Text("حساب جدید")};OutlinedButton(onClick=onTransfer){Text("انتقال")}};Spacer(Modifier.height(12.dp));accounts.forEach{a->GlassCard(dark=dark){Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold);Text(money(a.balance),color=aqua,fontSize=19.sp,fontWeight=FontWeight.Bold)}}}
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(horizontal=16.dp),contentPadding=PaddingValues(top=16.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
+        item { Text("حساب‌های خانواده",color=fg,fontSize=23.sp,fontWeight=FontWeight.Bold) }
+        item { GlassCard(dark=dark) {
+            Text("مدیریت حساب‌ها",color=fg,fontWeight=FontWeight.Bold)
+            Text("برای هر عضو می‌توانید چند حساب مستقل داشته باشید.",color=sub,fontSize=12.sp)
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                Button(onClick=onMember,modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=violet)){Text("عضو جدید")}
+                OutlinedButton(onClick=onAccount,modifier=Modifier.weight(1f)){Text("حساب جدید")}
+            }
+            OutlinedButton(onClick=onTransfer,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.SwapHoriz,null);Spacer(Modifier.width(6.dp));Text("انتقال وجه بین حساب‌ها")}
+        } }
+        if(accounts.isEmpty()) item { GlassCard(dark=dark){Text("هنوز حسابی ایجاد نشده است.",color=sub)} }
+        items(accounts,key={it.id}) { a -> GlassCard(dark=dark) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Surface(shape=RoundedCornerShape(14.dp),color=violet.copy(alpha=.16f)){Icon(Icons.Default.AccountBalanceWallet,null,tint=if(dark)Color(0xFFC4BDFF) else violet,modifier=Modifier.padding(11.dp))}
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) { Text(a.memberName,color=sub,fontSize=12.sp);Text(a.name,color=fg,fontWeight=FontWeight.Bold) }
+            }
+            Text(money(a.balance),color=if(a.balance<0)pink else aqua,fontSize=21.sp,fontWeight=FontWeight.Bold)
+        } }
+    }
 }
 @Composable private fun ReportsPage(p:PaddingValues,income:Long,expense:Long,cats:List<Pair<String,Long>>,budgets:List<Budget>,fg:Color,sub:Color,dark:Boolean,onBudget:()->Unit,onDeleteBudget:(Budget)->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF202E58),Color(0xFF111A36),Color(0xFF17172F)) else listOf(Color(0xFFE4E8FF),Color(0xFFF8F9FF),Color(0xFFECEEFF)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
