@@ -115,18 +115,6 @@ private val aqua = Color(0xFF55D6D0)
 private val pink = Color(0xFFFF78B7)
 private val muted = Color(0xFFB8C4E5)
 private fun money(value: Long): String = DecimalFormat("#,###").format(value) + " تومان"
-private fun normalizeDigits(value: String): String = buildString {
-    value.forEach { ch ->
-        when (ch) {
-            in '۰'..'۹' -> append(('0'.code + (ch.code - '۰'.code)).toChar())
-            in '٠'..'٩' -> append(('0'.code + (ch.code - '٠'.code)).toChar())
-            else -> if (ch in '0'..'9') append(ch)
-        }
-    }
-}
-private fun formatAmount(value: String): String =
-    normalizeDigits(value).reversed().chunked(3).joinToString(",").reversed()
-private fun parseAmount(value: String): Long? = normalizeDigits(value).toLongOrNull()
 private fun jalali(millis: Long): String {
     val c = java.util.Calendar.getInstance().apply { timeInMillis = millis }
     var jy = c.get(java.util.Calendar.YEAR) - 621
