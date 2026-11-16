@@ -23,9 +23,14 @@
 - Kotlin
 - Android Jetpack Compose و Material 3
 - SQLite محلی از طریق SQLiteOpenHelper
-- GitHub Actions برای ساخت APK
+- GitHub Actions برای آزمون و ساخت APK
 
-## ساخت APK
-با هر Push به شاخه `main`، گردش‌کار GitHub Actions اجرا می‌شود و فایل `app-debug.apk` را به‌عنوان Artifact با نام `family-finance-debug-apk` منتشر می‌کند.
+## ساخت و دریافت APK
+با هر Push به شاخه `main` یا اجرای دستی گردش‌کار **Android verification and release**، آزمون‌های واحد و ساخت APK اجرا می‌شوند.
 
-> خروجی فعلی Debug است و برای انتشار عمومی، امضای Release اختصاصی لازم است.
+- فایل Debug پس از موفقیت آزمون‌ها به‌صورت Artifact با نام `family-finance-v0.7.0-debug-apk` در دسترس است.
+- در صورت تنظیم هر چهار Secret امضای اندروید، گردش‌کار علاوه بر Debug، نسخه Release امضاشده را نیز می‌سازد، امضای آن را بررسی می‌کند و Artifact با نام `family-finance-v0.7.0-release-apk` منتشر می‌کند.
+- چهار Secret موردنیاز عبارت‌اند از `ANDROID_KEYSTORE_BASE64`، `ANDROID_KEYSTORE_PASSWORD`، `ANDROID_KEY_ALIAS` و `ANDROID_KEY_PASSWORD`.
+- فایل keystore و رمزهای آن نباید در مخزن کد یا در پیام‌های عمومی قرار بگیرند. از فایل keystore نسخه پشتیبان امن و آفلاین نگهداری کنید.
+
+برای دریافت فایل‌ها، در مخزن به بخش **Actions** بروید، اجرای موفق را باز کنید و Artifact موردنظر را از قسمت **Artifacts** دانلود کنید.
