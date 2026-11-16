@@ -188,6 +188,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     var selectedDebt by remember { mutableStateOf<FamilyDebt?>(null) }
     var selectedReceivable by remember { mutableStateOf<FamilyReceivable?>(null) }
     var selectedRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
+    var selectedCheque by remember { mutableStateOf<FamilyCheque?>(null) }
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
     var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
@@ -202,6 +203,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     val debts = remember(refresh) { db.debts() }
     val receivables = remember(refresh) { db.receivables() }
     val recurringBills = remember(refresh) { db.recurringBills() }
+    val cheques = remember(refresh) { db.cheques() }
     val overdueInstallments = remember(refresh) { db.overdueInstallments() }
     val upcomingInstallments = remember(refresh) { db.upcomingInstallments(7) }
     val installmentsByDebt = remember(refresh) { debts.associate { it.id to db.debtInstallments(it.id) } }
@@ -224,8 +226,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                     windowInsets=WindowInsets(0,0,0,0),
                     modifier=Modifier.height(72.dp)
                 ) {
-                    val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط")
-                    val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable)
+                    val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط","چک‌ها")
+                    val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable,Icons.Default.Description)
                     labels.forEachIndexed { i,label ->
                         NavigationBarItem(
                             selected=page==i,onClick={page=i},
@@ -242,14 +244,15 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                     }
                 }
             }
-        }, floatingActionButton={ if(page==0||page==1||page==5) FloatingActionButton(onClick={dialog=if(page==5)"debt" else "transaction"},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
+        }, floatingActionButton={ if(page==0||page==1||page==5||page==6) FloatingActionButton(onClick={dialog=when(page){5->"debt";6->"cheque";else->"transaction"}},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
             when(page) {
                 0 -> Dashboard(pad,balance,income,expense,txs.take(5),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
                 1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
                 2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
                 3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
                 4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport)
-                else -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
+                5 -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
+                else -> ChequesPage(pad,cheques,fg,sub,dark,{dialog="cheque"},{cheque,status->db.updateChequeStatus(cheque.id,status).also{if(it)refresh++}},{cheque->selectedCheque=cheque;dialog="deleteCheque"})
             }
         }
         when(dialog) {
@@ -273,6 +276,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             "contribute" -> selectedGoal?.let { goal -> GoalContributionDialog(goal,dark,onDismiss={dialog="";selectedGoal=null},onSave={amount->db.contributeGoal(goal.id,amount).also{if(it)refresh++}}) }
             "deleteGoal" -> selectedGoal?.let { goal -> AlertDialog(onDismissRequest={dialog="";selectedGoal=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف هدف",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("هدف «"+goal.title+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteGoal(goal.id);refresh++;dialog="";selectedGoal=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedGoal=null}){Text("انصراف")}}) }
             "deleteBudget" -> selectedBudget?.let { budget -> AlertDialog(onDismissRequest={dialog="";selectedBudget=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف بودجه",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("بودجه «"+budget.category+"» حذف شود؟",color=Color.White) }},confirmButton={TextButton(onClick={db.deleteBudget(budget.id);refresh++;dialog="";selectedBudget=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedBudget=null}){Text("انصراف")}}) }
+            "cheque" -> ChequeDialog(dark,onDismiss={dialog=""},onSave={type,number,bank,person,amount,due,note->db.addCheque(type,number,bank,person,amount,due,note).also{if(it)refresh++}})
+            "deleteCheque" -> selectedCheque?.let { cheque -> AlertDialog(onDismissRequest={dialog="";selectedCheque=null},title={Text("حذف چک")},text={Text("چک شماره ${cheque.number} حذف شود؟")},confirmButton={TextButton(onClick={db.deleteCheque(cheque.id);refresh++;dialog="";selectedCheque=null}){Text("حذف",color=pink)}},dismissButton={TextButton(onClick={dialog="";selectedCheque=null}){Text("انصراف")}}) }
         }
         smsSuggestion?.let { suggestion ->
             BankSmsReviewDialog(suggestion,accounts,db.categories(suggestion.type),dark,
@@ -284,6 +289,52 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 })
         }
     }
+}
+
+@Composable private fun ChequesPage(p:PaddingValues,cheques:List<FamilyCheque>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onStatus:(FamilyCheque,String)->Unit,onDelete:(FamilyCheque)->Unit) {
+    val pending=cheques.filter{it.status=="در انتظار"}
+    val totalIn=pending.filter{it.type=="دریافتی"}.sumOf{it.amount}
+    val totalOut=pending.filter{it.type=="پرداختی"}.sumOf{it.amount}
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.verticalGradient(if(dark)listOf(Color(0xFF18264D),Color(0xFF0B1022))else listOf(Color(0xFFE8ECFF),Color(0xFFF6F7FC)))).padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=30.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item { ScreenHeading("مدیریت چک‌ها","چک‌های دریافتی و پرداختی و پیگیری سررسید",fg,sub,dark) }
+        item { Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricCard("چک دریافتی",totalIn,aqua,sub,dark,Modifier.weight(1f));MetricCard("چک پرداختی",totalOut,pink,sub,dark,Modifier.weight(1f))} }
+        item { Button(onClick=onAdd,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=violet)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(7.dp));Text("ثبت چک جدید")} }
+        if(cheques.isEmpty()) item { GlassCard(dark=dark){Text("هنوز چکی ثبت نشده است.",color=fg,fontWeight=FontWeight.SemiBold);Text("چک‌های دریافتی و پرداختی را اینجا ثبت و پیگیری کنید.",color=sub,fontSize=12.sp)} }
+        items(cheques,key={"cheque${it.id}"}) { cheque ->
+            GlassCard(dark=dark) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)){Text(if(cheque.type=="دریافتی")"چک دریافتی" else "چک پرداختی",color=if(cheque.type=="دریافتی")aqua else pink,fontSize=11.sp,fontWeight=FontWeight.Bold);Text("شماره ${cheque.number}",color=fg,fontSize=16.sp,fontWeight=FontWeight.Bold);Text("${cheque.bank} · ${cheque.person}",color=sub,fontSize=11.sp)}
+                    Text(cheque.status,color=if(cheque.status=="برگشت خورد")pink else if(cheque.status=="در انتظار")Color(0xFFFFC66D) else aqua,fontSize=11.sp,fontWeight=FontWeight.Bold)
+                }
+                Text(money(cheque.amount),color=fg,fontSize=19.sp,fontWeight=FontWeight.Bold)
+                Text("سررسید: ${jalali(cheque.dueAt)}",color=if(cheque.dueAt<System.currentTimeMillis()&&cheque.status=="در انتظار")pink else sub,fontSize=11.sp)
+                if(cheque.note.isNotBlank())Text(cheque.note,color=sub,fontSize=10.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                    if(cheque.status=="در انتظار") (if(cheque.type=="دریافتی")listOf("وصول شد","برگشت خورد","باطل شد")else listOf("پاس شد","برگشت خورد","باطل شد")).forEach{status->TextButton(onClick={onStatus(cheque,status)}){Text(status,fontSize=10.sp)}}
+                    else TextButton(onClick={onStatus(cheque,"در انتظار")}){Text("بازگردانی وضعیت",fontSize=10.sp)}
+                    TextButton(onClick={onDelete(cheque)}){Text("حذف",color=pink,fontSize=10.sp)}
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun ChequeDialog(dark:Boolean,onDismiss:()->Unit,onSave:(String,String,String,String,Long,Long,String)->Boolean) {
+    val context=LocalContext.current
+    var type by remember{mutableStateOf("دریافتی")}
+    var number by remember{mutableStateOf("")};var bank by remember{mutableStateOf("")};var person by remember{mutableStateOf("")}
+    var amount by remember{mutableStateOf("")};var note by remember{mutableStateOf("")}
+    var due by remember{mutableLongStateOf(System.currentTimeMillis())};var error by remember{mutableStateOf(false)}
+    AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark)panel else Color(0xFFF7F8FF),title={Text("ثبت چک جدید",color=Color.White)},text={GlassDialogBody(dark=dark){
+        Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("دریافتی","پرداختی").forEach{FilterChip(selected=type==it,onClick={type=it},label={Text("چک $it")})}}
+            OutText(number,{number=it;error=false},"شماره چک");OutText(bank,{bank=it;error=false},"نام بانک")
+            OutText(person,{person=it;error=false},if(type=="دریافتی")"صادرکننده چک" else "ذی‌نفع چک")
+            OutText(amount,{amount=formatAmount(it);error=false},"مبلغ به تومان",numeric=true)
+            OutlinedButton(onClick={val c=java.util.Calendar.getInstance().apply{timeInMillis=due};DatePickerDialog(context,{_,y,m,d->due=java.util.Calendar.getInstance().apply{set(y,m,d,12,0,0);set(java.util.Calendar.MILLISECOND,0)}.timeInMillis},c.get(java.util.Calendar.YEAR),c.get(java.util.Calendar.MONTH),c.get(java.util.Calendar.DAY_OF_MONTH)).show()},modifier=Modifier.fillMaxWidth()){Text("تاریخ سررسید: ${jalali(due)}")}
+            OutText(note,{note=it},"توضیحات (اختیاری)");if(error)Text("موارد ضروری و مبلغ را بررسی کنید.",color=pink,fontSize=11.sp)
+        }
+    }},confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&onSave(type,number,bank,person,v,due,note))onDismiss()else error=true}){Text("ذخیره چک")}},dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
 }
 
 @Composable private fun BankSmsReviewDialog(
