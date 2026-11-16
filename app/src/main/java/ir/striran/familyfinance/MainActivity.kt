@@ -1,6 +1,9 @@
 package ir.striran.familyfinance
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
@@ -39,12 +42,33 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 
 class MainActivity : ComponentActivity() {
     private lateinit var db: FinanceDatabase
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = FinanceDatabase(this)
+        val immediateReminder = OneTimeWorkRequestBuilder<InstallmentReminderWorker>().build()
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "family-installment-reminder-initial",
+            ExistingWorkPolicy.KEEP,
+            immediateReminder
+        )
+        val dailyReminder = PeriodicWorkRequestBuilder<InstallmentReminderWorker>(24, TimeUnit.HOURS).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "family-installment-reminder-daily",
+            ExistingPeriodicWorkPolicy.KEEP,
+            dailyReminder
+        )
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7001)
+        }
         setContent {
             var activeDb by remember { mutableStateOf(db) }
             val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
