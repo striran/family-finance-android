@@ -5,7 +5,8 @@ internal fun normalizeDigits(value: String): String = buildString {
         when (ch) {
             in '۰'..'۹' -> append(('0'.code + (ch.code - '۰'.code)).toChar())
             in '٠'..'٩' -> append(('0'.code + (ch.code - '٠'.code)).toChar())
-            else -> if (ch in '0'..'9') append(ch)
+            in '0'..'9' -> append(ch)
+            else -> Unit
         }
     }
 }
