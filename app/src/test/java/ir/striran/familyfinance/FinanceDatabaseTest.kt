@@ -78,4 +78,38 @@ class FinanceDatabaseTest {
         assertTrue(db.addMember("فرزند"))
         assertTrue(db.accounts().any { it.memberName == "فرزند" && it.name == "کیف پول فرزند" })
     }
+    @Test fun deletingTransactionRestoresAccountBalance() {
+        val account = db.accounts().first()
+        assertTrue(db.addTransaction(account.id, "درآمد", "حقوق", 1_000, ""))
+        assertTrue(db.addTransaction(account.id, "هزینه", "خرید", 250, ""))
+        val expense = db.allTransactions().first { it.category == "خرید" }
+        assertTrue(db.deleteTransaction(expense.id))
+        assertEquals(1_000L, db.accounts().first { it.id == account.id }.balance)
+        assertFalse(db.allTransactions().any { it.id == expense.id })
+    }
+
+    @Test fun deletingSingleTransferEntryIsRejected() {
+        val accounts = db.accounts()
+        assertTrue(db.addTransaction(accounts[0].id, "درآمد", "حقوق", 1_000, ""))
+        assertTrue(db.transfer(accounts[0].id, accounts[1].id, 400, "انتقال"))
+        val transferEntry = db.allTransactions().first { it.category == "انتقال وجه" }
+        assertFalse(db.deleteTransaction(transferEntry.id))
+        assertEquals(600L, db.accounts().first { it.id == accounts[0].id }.balance)
+        assertEquals(400L, db.accounts().first { it.id == accounts[1].id }.balance)
+        assertEquals(2, db.allTransactions().count { it.category == "انتقال وجه" || it.category == "دریافت انتقال" })
+    }
+
+    @Test fun deletingTransactionRejectsBalanceOverflowWithoutChangingData() {
+        val account = db.accounts().first()
+        assertTrue(db.addTransaction(account.id, "هزینه", "خرید", 100, ""))
+        val expense = db.allTransactions().first { it.category == "خرید" }
+        db.writableDatabase.execSQL(
+            "UPDATE accounts SET balance=? WHERE id=?",
+            arrayOf(Long.MAX_VALUE, account.id)
+        )
+        assertFalse(db.deleteTransaction(expense.id))
+        assertEquals(Long.MAX_VALUE, db.accounts().first { it.id == account.id }.balance)
+        assertTrue(db.allTransactions().any { it.id == expense.id })
+    }
+
 }
