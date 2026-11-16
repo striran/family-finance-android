@@ -25,4 +25,20 @@ class FinanceMathTest {
         assertEquals(Long.MAX_VALUE, checkedBalance(Long.MAX_VALUE - 1L, 1L))
         assertEquals(Long.MIN_VALUE, checkedBalance(Long.MIN_VALUE + 1L, -1L))
     }
+
+    @Test fun calculatesRemainingBudgetAndOverage() {
+        assertEquals(600L, budgetRemaining(400L, 1_000L))
+        assertEquals(0L, budgetRemaining(1_200L, 1_000L))
+        assertEquals(0L, budgetOverage(800L, 1_000L))
+        assertEquals(200L, budgetOverage(1_200L, 1_000L))
+    }
+
+    @Test fun calculatesBudgetUsagePercentIncludingOverLimit() {
+        assertEquals(0, budgetUsagePercent(0L, 1_000L))
+        assertEquals(45, budgetUsagePercent(450L, 1_000L))
+        assertEquals(100, budgetUsagePercent(1_000L, 1_000L))
+        assertEquals(125, budgetUsagePercent(1_250L, 1_000L))
+        assertEquals(0, budgetUsagePercent(100L, 0L))
+        assertEquals(0, budgetUsagePercent(-10L, 1_000L))
+    }
 }
