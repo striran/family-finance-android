@@ -74,7 +74,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         } finally { db.endTransaction() }
     }
     fun updateTransaction(id: Long, accountId: Long, type: String, category: String, amount: Long, note: String): Boolean {
-        if (amount <= 0 || category.isBlank()) return false
+        if (amount <= 0 || category.isBlank() || type !in listOf("درآمد", "هزینه")) return false
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -82,9 +82,15 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
                 if (!it.moveToFirst()) return false
                 Triple(it.getLong(0), it.getString(1), it.getLong(2))
             }
+            val targetExists = db.rawQuery("SELECT 1 FROM accounts WHERE id=?", arrayOf(accountId.toString())).use { it.moveToFirst() }
+            if (!targetExists) return false
             val oldDelta = if (old.second == "درآمد") -old.third else old.third
-            val newDelta = if (type == "درآمد") amount else -amount
             db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?", arrayOf(oldDelta, old.first))
+            val newDelta = if (type == "درآمد") amount else -amount
+            val targetBalance = db.rawQuery("SELECT balance FROM accounts WHERE id=?", arrayOf(accountId.toString())).use {
+                if (it.moveToFirst()) it.getLong(0) else return false
+            }
+            if (type == "هزینه" && targetBalance < amount) return false
             db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?", arrayOf(newDelta, accountId))
             db.update("transactions", ContentValues().apply {
                 put("account_id",accountId); put("type",type); put("category",category.trim())
@@ -114,7 +120,8 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
         db.beginTransaction()
         try {
             val balance = db.rawQuery("SELECT balance FROM accounts WHERE id=?",arrayOf(fromId.toString())).use { if(it.moveToFirst()) it.getLong(0) else return false }
-            if (balance < amount) return false
+            val destinationExists = db.rawQuery("SELECT 1 FROM accounts WHERE id=?",arrayOf(toId.toString())).use { it.moveToFirst() }
+            if (!destinationExists || balance < amount) return false
             db.execSQL("UPDATE accounts SET balance=balance-? WHERE id=?",arrayOf(amount,fromId))
             db.execSQL("UPDATE accounts SET balance=balance+? WHERE id=?",arrayOf(amount,toId))
             val stamp = System.currentTimeMillis()
@@ -160,8 +167,8 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
     }
     fun contributeGoal(id:Long,amount:Long):Boolean {
         if(amount<=0)return false
-        writableDatabase.execSQL("UPDATE goals SET saved=MIN(target,saved+?) WHERE id=?",arrayOf(amount,id))
-        return true
+        val changed = writableDatabase.update("goals", ContentValues().apply { put("saved", amount) }, "id=? AND saved + ? <= target", arrayOf(id.toString(), amount.toString()))
+        return changed > 0
     }
     fun deleteGoal(id:Long){writableDatabase.delete("goals","id=?",arrayOf(id.toString()))}
     private fun scalar(sql:String)=readableDatabase.rawQuery(sql,null).use{if(it.moveToFirst())it.getLong(0)else 0L}
