@@ -223,6 +223,19 @@ class FinanceDatabaseTest {
         assertTrue(db.allTransactions().isEmpty())
     }
 
+    @Test fun monthlyRecurringBillClampsToLastDayOfShortMonth() {
+        val account=db.accounts().first()
+        assertTrue(db.addTransaction(account.id,"درآمد","حقوق",1_000L,""))
+        val january31=java.util.Calendar.getInstance().apply{set(2027,java.util.Calendar.JANUARY,31,12,0,0);set(java.util.Calendar.MILLISECOND,0)}.timeInMillis
+        assertTrue(db.addRecurringBill("اجاره","مسکن",100L,january31,"ماهانه",""))
+        val bill=db.recurringBills().single()
+        assertTrue(db.payRecurringBill(bill.id,account.id,january31))
+        val next=java.util.Calendar.getInstance().apply{timeInMillis=db.recurringBills().single().dueAt}
+        assertEquals(2027,next.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.FEBRUARY,next.get(java.util.Calendar.MONTH))
+        assertEquals(28,next.get(java.util.Calendar.DAY_OF_MONTH))
+    }
+
     @Test fun recurringBillRejectsInvalidInputsAndSupportsDeletion() {
         val due=System.currentTimeMillis()+86_400_000L
         assertFalse(db.addRecurringBill("","برق",100L,due,"ماهانه",""))
@@ -253,6 +266,9 @@ class FinanceDatabaseTest {
         assertEquals(7_500L,db.accounts().single().balance)
         assertTrue(db.addDebt("بدهی قدیمی",1_000L,2,System.currentTimeMillis(),""))
         assertEquals(2,db.debtInstallments(db.debts().single().id).size)
+        assertTrue(db.addReceivable("علی",500L,System.currentTimeMillis(),""))
+        assertTrue(db.addRecurringBill("قبض برق","برق",200L,System.currentTimeMillis(),"ماهانه",""))
+        assertEquals(1,db.recurringBills().size)
     }
 
 }
