@@ -247,6 +247,21 @@ class FinanceDatabaseTest {
         assertTrue(db.recurringBills().isEmpty())
     }
 
+    @Test fun chequeRegisterValidatesInputsAndTracksStatusWithoutChangingCashBalance() {
+        assertFalse(db.addCheque("نامعتبر","123","ملت","علی",100L,System.currentTimeMillis(),""))
+        assertFalse(db.addCheque("دریافتی","","ملت","علی",100L,System.currentTimeMillis(),""))
+        assertTrue(db.addCheque("دریافتی","12345","ملت","علی",250_000L,System.currentTimeMillis(),"وصول هفته بعد"))
+        val cheque=db.cheques().single()
+        assertEquals("در انتظار",cheque.status)
+        assertEquals(250_000L,cheque.amount)
+        assertTrue(db.updateChequeStatus(cheque.id,"وصول شد"))
+        assertEquals("وصول شد",db.cheques().single().status)
+        assertFalse(db.updateChequeStatus(cheque.id,"وضعیت اشتباه"))
+        assertEquals(0L,db.totalBalance())
+        assertTrue(db.deleteCheque(cheque.id))
+        assertTrue(db.cheques().isEmpty())
+    }
+
     @Test fun upgradingVersionThreeDatabasePreservesExistingDataAndAddsDebtTables() {
         db.close()
         context.deleteDatabase("family_finance.db")
@@ -269,6 +284,8 @@ class FinanceDatabaseTest {
         assertTrue(db.addReceivable("علی",500L,System.currentTimeMillis(),""))
         assertTrue(db.addRecurringBill("قبض برق","برق",200L,System.currentTimeMillis(),"ماهانه",""))
         assertEquals(1,db.recurringBills().size)
+        assertTrue(db.addCheque("پرداختی","9876","صادرات","شرکت",900L,System.currentTimeMillis(),""))
+        assertEquals(1,db.cheques().size)
     }
 
 }
