@@ -73,6 +73,7 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
             "هزینه" to listOf("خوراک و مواد غذایی","رستوران و کافی‌شاپ","خرید روزانه","میوه و سبزیجات","نان و لبنیات","حمل‌ونقل و تاکسی","بنزین و سوخت","تعمیر و نگهداری خودرو","قبوض آب، برق و گاز","تلفن و اینترنت","اجاره و شارژ ساختمان","لوازم منزل","پوشاک و کفش","بهداشت و مراقبت شخصی","درمان و دارو","آموزش و کتاب","شهریه مدرسه","تفریح و سرگرمی","سفر و اقامت","هدیه و مناسبت‌ها","اقساط و وام","بیمه","مالیات و عوارض","هزینه‌های کودک","حیوانات خانگی","سایر هزینه‌ها"),
             "درآمد" to listOf("حقوق و دستمزد","اضافه‌کار و پاداش","درآمد همسر","درآمد شغل دوم","فروش کالا","درآمد خدمات","اجاره دریافتی","سود سرمایه‌گذاری","هدیه نقدی","یارانه و کمک‌هزینه","بازپرداخت طلب","سایر درآمدها")
         )
+        db.execSQL("INSERT OR IGNORE INTO categories(type,name) SELECT type,category FROM transactions WHERE type IN ('درآمد','هزینه') AND category NOT IN ('انتقال وجه','دریافت انتقال')")
         defaults.forEach { (type, names) -> names.forEach { name ->
             db.insertWithOnConflict("categories", null, ContentValues().apply { put("type",type); put("name",name) }, SQLiteDatabase.CONFLICT_IGNORE)
         } }
