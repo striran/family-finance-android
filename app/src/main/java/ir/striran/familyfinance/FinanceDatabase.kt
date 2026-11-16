@@ -49,15 +49,20 @@ class FinanceDatabase(context: Context) : SQLiteOpenHelper(context, "family_fina
     fun addMember(name: String): Boolean {
         if (name.isBlank()) return false
         val db = writableDatabase
-        val v = ContentValues().apply { put("name", name.trim()) }
-        val id = db.insert("members", null, v)
-        if (id < 0) return false
-        val a = ContentValues().apply { put("member_id", id); put("name", "کیف پول $name"); put("balance", 0) }
-        db.insert("accounts", null, a)
-        return true
+        db.beginTransaction()
+        try {
+            val id = db.insertOrThrow("members", null, ContentValues().apply { put("name", name.trim()) })
+            db.insertOrThrow("accounts", null, ContentValues().apply {
+                put("member_id", id); put("name", "کیف پول ${name.trim()}"); put("balance", 0)
+            })
+            db.setTransactionSuccessful()
+            return true
+        } catch (_: Exception) {
+            return false
+        } finally { db.endTransaction() }
     }
     fun addAccount(memberId: Long, name: String): Boolean {
-        if (name.isBlank()) return false
+        if (name.isBlank() || members().none { it.id == memberId }) return false
         return writableDatabase.insert("accounts", null, ContentValues().apply {
             put("member_id", memberId); put("name", name.trim()); put("balance", 0)
         }) > 0
