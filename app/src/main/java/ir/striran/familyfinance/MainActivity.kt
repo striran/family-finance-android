@@ -17,6 +17,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -315,19 +316,21 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
 }
 
 @Composable private fun GlassCard(modifier:Modifier=Modifier,dark:Boolean=true,content:@Composable ColumnScope.()->Unit){
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(30.dp)
     val glassBrush = if(dark)
-        Brush.linearGradient(listOf(Color(0xFF6575A8).copy(alpha=.30f),Color(0xFF26365D).copy(alpha=.20f),Color(0xFF9D91FF).copy(alpha=.13f)))
+        Brush.linearGradient(listOf(Color(0xFFB9C8FF).copy(alpha=.22f),Color(0xFF34466F).copy(alpha=.30f),Color(0xFF7D70E8).copy(alpha=.18f)))
     else
-        Brush.linearGradient(listOf(Color.White.copy(alpha=.94f),Color(0xFFE9EDFF).copy(alpha=.76f),Color.White.copy(alpha=.88f)))
-    val rim = if(dark) Color.White.copy(alpha=.28f) else Color.White.copy(alpha=.96f)
+        Brush.linearGradient(listOf(Color.White.copy(alpha=.88f),Color(0xFFE8ECFF).copy(alpha=.72f),Color.White.copy(alpha=.92f)))
+    val rim = if(dark) Color.White.copy(alpha=.34f) else Color.White.copy(alpha=.98f)
     Box(
-        modifier=modifier.fillMaxWidth().shadow(if(dark) 12.dp else 5.dp,shape,clip=false)
-            .clip(shape).background(glassBrush).border(1.dp,rim,shape)
+        modifier=modifier.fillMaxWidth().shadow(if(dark) 18.dp else 8.dp,shape,clip=false)
+            .clip(shape).background(glassBrush).border(1.dp,Brush.linearGradient(listOf(rim,if(dark)Color(0xFF9D91FF).copy(alpha=.40f) else Color(0xFFB8C4FF).copy(alpha=.50f),rim)),shape)
     ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .62f else .95f),Color.Transparent))))
-        Column(Modifier.fillMaxWidth().padding(17.dp),content=content)
-        Box(Modifier.align(Alignment.BottomEnd).padding(end=18.dp,bottom=8.dp).size(52.dp,2.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .13f else .35f),Color.Transparent)),RoundedCornerShape(50)))
+        Box(Modifier.align(Alignment.TopEnd).offset(x=18.dp,y=(-24).dp).size(116.dp).blur(30.dp).background(Color(0xFF9D91FF).copy(alpha=if(dark).34f else .22f),RoundedCornerShape(100)))
+        Box(Modifier.align(Alignment.BottomStart).offset(x=(-22).dp,y=18.dp).size(84.dp).blur(26.dp).background(Color(0xFF55D6D0).copy(alpha=if(dark).20f else .14f),RoundedCornerShape(100)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .78f else .98f),Color.Transparent))))
+        Column(Modifier.fillMaxWidth().padding(18.dp),content=content)
+        Box(Modifier.align(Alignment.BottomEnd).padding(end=20.dp,bottom=9.dp).size(58.dp,2.dp).background(Brush.horizontalGradient(listOf(Color.Transparent,Color.White.copy(alpha=if(dark) .22f else .42f),Color.Transparent)),RoundedCornerShape(50)))
     }
 }
 @Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
@@ -358,8 +361,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
                 colors=CardDefaults.cardColors(containerColor=Color.Transparent)
             ){
                 Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF887BFF),Color(0xFF5657C9),Color(0xFF176F91)))).padding(22.dp)) {
-                    Box(Modifier.align(Alignment.TopEnd).size(142.dp).background(Color.White.copy(alpha=.075f),RoundedCornerShape(100.dp)))
-                    Box(Modifier.align(Alignment.BottomStart).size(86.dp).background(Color(0xFF70E4DB).copy(alpha=.10f),RoundedCornerShape(100.dp)))
+                    Box(Modifier.align(Alignment.TopEnd).offset(x=24.dp,y=(-18).dp).size(150.dp).blur(28.dp).background(Color.White.copy(alpha=.13f),RoundedCornerShape(100.dp)))
+                    Box(Modifier.align(Alignment.BottomStart).offset(x=(-16).dp,y=18.dp).size(96.dp).blur(22.dp).background(Color(0xFF70E4DB).copy(alpha=.18f),RoundedCornerShape(100.dp)))
                     Column {
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Icon(Icons.Default.Wallet,null,tint=Color.White.copy(alpha=.92f),modifier=Modifier.size(20.dp))
