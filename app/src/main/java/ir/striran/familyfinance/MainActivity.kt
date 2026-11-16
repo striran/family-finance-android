@@ -216,12 +216,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val midnight = Color(0xFF101A24)
-private val panel = Color(0xFF1C2B36)
-private val violet = Color(0xFFB5D334)
-private val aqua = Color(0xFF36B79A)
-private val pink = Color(0xFFE58B76)
-private val muted = Color(0xFF9BAAB2)
+private val midnight = Color(0xFF17121D)
+private val panel = Color(0xFF261D2E)
+private val violet = Color(0xFF61347D)
+private val aqua = Color(0xFF2EAD76)
+private val pink = Color(0xFFE35D68)
+private val muted = Color(0xFF8D8992)
 private fun money(value: Long): String = DecimalFormat("#,###").format(value) + " تومان"
 private fun jalali(millis: Long): String {
     val c = java.util.Calendar.getInstance().apply { timeInMillis = millis }
@@ -260,7 +260,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     var selectedCheque by remember { mutableStateOf<FamilyCheque?>(null) }
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
-    var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
+    var dark by remember { mutableStateOf(preferences.getBoolean("dark_theme", false)) }
     var smsSuggestion by remember { mutableStateOf(readBankSmsSuggestion(context)) }
     val balance = remember(refresh) { db.totalBalance() }
     val income = remember(refresh) { db.monthTotal("درآمد") }
@@ -276,10 +276,10 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     val overdueInstallments = remember(refresh) { db.overdueInstallments() }
     val upcomingInstallments = remember(refresh) { db.upcomingInstallments(7) }
     val installmentsByDebt = remember(refresh) { debts.associate { it.id to db.debtInstallments(it.id) } }
-    val bg = if(dark) midnight else Color(0xFFF4F5F1)
-    val fg = if(dark) Color(0xFFF3F6F2) else Color(0xFF17252D)
-    val sub = if(dark) Color(0xFFA9B7B9) else Color(0xFF68777A)
-    MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=violet,secondary=aqua,background=midnight,surface=panel) else lightColorScheme(primary=Color(0xFF718B1F),secondary=aqua,background=Color(0xFFF4F5F1),surface=Color.White)) {
+    val bg = if(dark) midnight else Color(0xFFF7F7F9)
+    val fg = if(dark) Color(0xFFF5F2F7) else Color(0xFF303039)
+    val sub = if(dark) Color(0xFFB7ACBC) else Color(0xFF85838D)
+    MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=Color(0xFFCEACE3),secondary=Color(0xFF73D7A5),background=midnight,surface=panel) else lightColorScheme(primary=violet,secondary=aqua,background=Color(0xFFF7F7F9),surface=Color.White,onSurface=Color(0xFF303039))) {
         Scaffold(containerColor=bg, bottomBar={
             Surface(
                 modifier=Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=9.dp,top=5.dp)
@@ -439,56 +439,64 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
 }
 
 @Composable private fun GlassCard(modifier:Modifier=Modifier,dark:Boolean=true,content:@Composable ColumnScope.()->Unit){
-    val shape=RoundedCornerShape(22.dp)
-    Surface(modifier=modifier.fillMaxWidth(),shape=shape,color=if(dark)Color(0xFF1B2A34) else Color.White,
-        border=BorderStroke(1.dp,if(dark)Color(0xFF344650) else Color(0xFFE4E9E3)),shadowElevation=if(dark)0.dp else 2.dp) {
-        Column(Modifier.fillMaxWidth().padding(17.dp),content=content)
+    Surface(modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(15.dp),color=if(dark)Color(0xFF261D2E) else Color.White,
+        border=BorderStroke(1.dp,if(dark)Color(0xFF403348) else Color(0xFFECEAF0)),shadowElevation=if(dark)0.dp else 1.dp) {
+        Column(Modifier.fillMaxWidth().padding(15.dp),content=content)
+    }
+}
+@Composable private fun FinanceGauge(title:String,value:Long,maximum:Long,color:Color,fg:Color,sub:Color,dark:Boolean){
+    val progress=if(maximum>0L)(value.toFloat()/maximum.toFloat()).coerceIn(0f,1f) else 0f
+    Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.width(145.dp)){
+        Box(contentAlignment=Alignment.Center,modifier=Modifier.size(112.dp)){
+            Canvas(Modifier.fillMaxSize()){
+                val stroke=10.dp.toPx()
+                drawArc(if(dark)Color.White.copy(alpha=.10f) else Color(0xFFEDEAF0),135f,270f,false,style=Stroke(stroke,cap=StrokeCap.Round))
+                drawArc(color,135f,270f*progress,false,style=Stroke(stroke,cap=StrokeCap.Round))
+            }
+            Column(horizontalAlignment=Alignment.CenterHorizontally){
+                Text(if(title=="درآمد")"دریافت" else "پرداخت",color=sub,fontSize=10.sp)
+                Text(if(progress==0f)"۰٪" else "${(progress*100).toInt()}٪",color=fg,fontWeight=FontWeight.Bold,fontSize=19.sp)
+            }
+        }
+        Spacer(Modifier.height(5.dp));Text(title,color=fg,fontSize=13.sp,fontWeight=FontWeight.SemiBold)
+        Text(money(value),color=color,fontSize=12.sp,fontWeight=FontWeight.Bold)
     }
 }
 @Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,cats:List<Pair<String,Long>>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)Color(0xFF101A24) else Color(0xFFF4F5F1)).padding(horizontal=18.dp),
-        contentPadding=PaddingValues(top=22.dp,bottom=34.dp),verticalArrangement=Arrangement.spacedBy(15.dp)){
-        item { Row(verticalAlignment=Alignment.CenterVertically){
-            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
-                Text("داشبورد خانواده",color=sub,fontSize=12.sp,fontWeight=FontWeight.Medium)
-                Text("امروز چقدر در اختیار داریم؟",color=fg,fontSize=21.sp,fontWeight=FontWeight.Bold)
-                Text(jalali(System.currentTimeMillis()),color=sub,fontSize=11.sp)
-            }
-            Surface(shape=RoundedCornerShape(16.dp),color=if(dark)Color(0xFF263842) else Color(0xFFE8EDDF)){
-                Icon(Icons.Default.AccountBalanceWallet,null,tint=if(dark)violet else Color(0xFF718B1F),modifier=Modifier.padding(13.dp).size(25.dp))
-            }
-        }}
-        item { Card(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Color.Transparent)){
-            Box(Modifier.fillMaxWidth().background(Brush.linearGradient(if(dark)listOf(Color(0xFF25443F),Color(0xFF18312F),Color(0xFF172B36)) else listOf(Color(0xFF243F39),Color(0xFF31594B),Color(0xFF253E48)))).padding(21.dp)){
-                Column(verticalArrangement=Arrangement.spacedBy(13.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){Text("موجودی کل خانواده",color=Color.White.copy(alpha=.78f),fontSize=13.sp);Spacer(Modifier.weight(1f));Text("همه حساب‌ها",color=Color.White,fontSize=10.sp)}
-                    Text(money(balance),color=Color.White,fontSize=27.sp,fontWeight=FontWeight.Bold)
-                    Divider(color=Color.White.copy(alpha=.16f))
-                    Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.TrendingUp,null,tint=Color(0xFFCAE47A),modifier=Modifier.size(17.dp));Spacer(Modifier.width(6.dp));Text("نمای کلی دارایی نقدی",color=Color.White.copy(alpha=.78f),fontSize=11.sp)}
-                }
+    val maxValue=maxOf(income,expense,1L)
+    val categoryColors=listOf(Color(0xFF6C43A0),Color(0xFF2EAD76),Color(0xFFF1A34A),Color(0xFFE35D68),Color(0xFF4C91CE),Color(0xFFB18BCB))
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(horizontal=16.dp),
+        contentPadding=PaddingValues(top=12.dp,bottom=28.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
+        item { GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){
+            Column(Modifier.weight(1f)){Text("موجودی کل حساب‌ها",color=sub,fontSize=12.sp);Spacer(Modifier.height(4.dp));Text(money(balance),color=fg,fontSize=22.sp,fontWeight=FontWeight.Bold)}
+            Surface(shape=RoundedCornerShape(12.dp),color=if(dark)Color(0xFF493257) else Color(0xFFF1EAF5)){Icon(Icons.Default.AccountBalanceWallet,null,tint=if(dark)Color(0xFFD9B8E9) else violet,modifier=Modifier.padding(12.dp).size(25.dp))}
+        }}}
+        item { GlassCard(dark=dark){
+            Row(verticalAlignment=Alignment.CenterVertically){Text("گزارش هزینه و درآمد",color=fg,fontWeight=FontWeight.Bold,fontSize=15.sp);Spacer(Modifier.weight(1f));Text("ماه جاری",color=sub,fontSize=11.sp)}
+            Spacer(Modifier.height(13.dp))
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
+                FinanceGauge("درآمد",income,maxValue,Color(0xFF2EAD76),fg,sub,dark)
+                FinanceGauge("هزینه",expense,maxValue,Color(0xFF76509A),fg,sub,dark)
             }
         }}
-        item { Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            Column(Modifier.weight(1f).background(if(dark)Color(0xFF1B302F) else Color(0xFFE7F0E7),RoundedCornerShape(20.dp)).padding(15.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.ArrowDownward,null,tint=Color(0xFF50C5A4),modifier=Modifier.size(17.dp));Spacer(Modifier.width(5.dp));Text("درآمد ماه",color=sub,fontSize=11.sp)}
-                Spacer(Modifier.height(9.dp));Text(money(income),color=if(dark)Color(0xFF76D9B9) else Color(0xFF167D62),fontSize=15.sp,fontWeight=FontWeight.Bold)
-            }
-            Column(Modifier.weight(1f).background(if(dark)Color(0xFF342A2A) else Color(0xFFF6EAE5),RoundedCornerShape(20.dp)).padding(15.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.ArrowUpward,null,tint=Color(0xFFE58B76),modifier=Modifier.size(17.dp));Spacer(Modifier.width(5.dp));Text("هزینه ماه",color=sub,fontSize=11.sp)}
-                Spacer(Modifier.height(9.dp));Text(money(expense),color=if(dark)Color(0xFFF0A18C) else Color(0xFFB65F4C),fontSize=15.sp,fontWeight=FontWeight.Bold)
-            }
+        item { Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+            Button(onClick=onAdd,modifier=Modifier.weight(1f).height(48.dp),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.buttonColors(containerColor=violet)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("ثبت تراکنش")}
+            OutlinedButton(onClick=onTransfer,modifier=Modifier.weight(1f).height(48.dp),shape=RoundedCornerShape(12.dp),border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.22f) else Color(0xFFDAD4E0))){Icon(Icons.Default.SwapHoriz,null);Spacer(Modifier.width(5.dp));Text("انتقال وجه",color=fg)}
         }}
-        item { Column {
-            Text("دسترسی سریع",color=fg,fontSize=16.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(9.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
-                Button(onClick=onAdd,modifier=Modifier.weight(1f).height(52.dp),shape=RoundedCornerShape(16.dp),colors=ButtonDefaults.buttonColors(containerColor=if(dark)Color(0xFFB5D334) else Color(0xFF718B1F),contentColor=Color(0xFF17252D))){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("ثبت تراکنش",fontWeight=FontWeight.Bold)}
-                OutlinedButton(onClick=onTransfer,modifier=Modifier.weight(1f).height(52.dp),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,if(dark)Color(0xFF53666D) else Color(0xFFD2DCCB)),colors=ButtonDefaults.outlinedButtonColors(contentColor=fg)){Icon(Icons.Default.SwapHoriz,null);Spacer(Modifier.width(5.dp));Text("انتقال وجه")}
-            }
-        }}
-        if(cats.isNotEmpty()) item { CategoryDonutChart(cats,fg,sub,dark) }
-        item { Row(verticalAlignment=Alignment.CenterVertically){Text("تراکنش‌های اخیر",color=fg,fontSize=16.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));Text("۵ مورد آخر",color=sub,fontSize=10.sp)} }
-        if(txs.isEmpty()) item { GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.ReceiptLong,null,tint=violet,modifier=Modifier.size(27.dp));Spacer(Modifier.width(10.dp));Column{Text("هنوز تراکنشی ثبت نشده است.",color=fg,fontWeight=FontWeight.SemiBold);Text("اولین درآمد یا هزینه را ثبت کنید.",color=sub,fontSize=11.sp)}}} }
-        else items(txs,key={it.id}){TxRow(it,fg,sub,dark)}
+        item { Row(verticalAlignment=Alignment.CenterVertically){Text("هزینه‌ها بر اساس دسته‌بندی",color=fg,fontSize=15.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));Text("جزئیات",color=violet,fontSize=11.sp)} }
+        if(cats.isEmpty()) item { GlassCard(dark=dark){Text("هنوز هزینه‌ای ثبت نشده است.",color=sub,fontSize=12.sp)} }
+        else items(cats.take(6),key={it.first}){(name,value)->
+            val index=cats.indexOfFirst{it.first==name}.coerceAtLeast(0);val tint=categoryColors[index%categoryColors.size]
+            GlassCard(dark=dark){Row(verticalAlignment=Alignment.CenterVertically){
+                Surface(shape=RoundedCornerShape(10.dp),color=tint.copy(alpha=.13f)){Icon(Icons.Default.Category,null,tint=tint,modifier=Modifier.padding(9.dp).size(18.dp))}
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)){Text(name,color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp);Spacer(Modifier.height(5.dp));LinearProgressIndicator(progress={if(expense>0)value.toFloat()/expense else 0f},modifier=Modifier.fillMaxWidth().height(5.dp),color=tint,trackColor=if(dark)Color.White.copy(alpha=.10f) else Color(0xFFF0EDF2))}
+                Spacer(Modifier.width(10.dp));Text(money(value),color=fg,fontSize=11.sp,fontWeight=FontWeight.Bold)
+            }}
+        }
+        item { Row(verticalAlignment=Alignment.CenterVertically){Text("آخرین تراکنش‌ها",color=fg,fontSize=15.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.weight(1f));Text("مشاهده همه",color=violet,fontSize=11.sp)} }
+        if(txs.isEmpty()) item { GlassCard(dark=dark){Text("تراکنشی برای نمایش وجود ندارد.",color=sub,fontSize=12.sp)} }
+        else items(txs.take(5),key={it.id}){TxRow(it,fg,sub,dark)}
     }
 }
 @Composable private fun MetricCard(title:String,value:Long,tint:Color,sub:Color,dark:Boolean,mod:Modifier){GlassCard(mod,dark){Text(title,color=sub,fontSize=12.sp);Spacer(Modifier.height(8.dp));Text(money(value),color=tint,fontSize=16.sp,fontWeight=FontWeight.Bold)}}
