@@ -31,7 +31,9 @@ jobs:
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
+          keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Run unit tests
         run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
@@ -72,13 +74,15 @@ jobs:
         if: env.ANDROID_KEYSTORE_BASE64 == '' || env.ANDROID_KEYSTORE_PASSWORD == '' || env.ANDROID_KEY_ALIAS == '' || env.ANDROID_KEY_PASSWORD == ''
         run: |
           echo "## Signed release not produced" >> "$GITHUB_STEP_SUMMARY"
-          echo "The four Android signing secrets are not configured. Debug APK and tests remain independent and will complete normally. A permanent release signing key must be generated and stored securely by the repository owner; do not commit it to the repository." >> "$GITHUB_STEP_SUMMARY"
+          echo "One or more Android signing secrets are missing. Configure all four repository secrets; never commit the keystore." >> "$GITHUB_STEP_SUMMARY"
       - name: Restore release keystore
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/family-release.jks
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
+          keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Build signed release APK
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         env:
