@@ -252,14 +252,99 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 @Composable private fun Dashboard(p:PaddingValues,balance:Long,income:Long,expense:Long,txs:List<FinanceTransaction>,fg:Color,sub:Color,dark:Boolean,onAdd:()->Unit,onTransfer:()->Unit){
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.verticalGradient(if(dark) listOf(Color(0xFF202D58),midnight) else listOf(Color(0xFFE8EAFE),Color(0xFFF5F6FC)))).padding(horizontal=18.dp),contentPadding=PaddingValues(top=22.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-        item { Column { Text("سلام، خوش آمدید",color=sub,fontSize=13.sp); Text("مدیریت مالی خانواده",color=fg,fontSize=24.sp,fontWeight=FontWeight.Bold); Text(jalali(System.currentTimeMillis()),color=sub,fontSize=12.sp) } }
-        item { Card(shape=RoundedCornerShape(28.dp),colors=CardDefaults.cardColors(containerColor=Color.Transparent)){Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF7667F5),Color(0xFF4A4BAE),Color(0xFF276D9B)))).padding(22.dp)){Text("موجودی کل خانواده",color=Color.White.copy(alpha=.85f));Text(money(balance),color=Color.White,fontSize=27.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Text("نمای کلی تمام حساب‌ها",color=Color.White.copy(alpha=.8f),fontSize=12.sp)}}}
-        item { Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){MetricCard("درآمد این ماه",income,aqua,sub,dark,Modifier.weight(1f));MetricCard("هزینه این ماه",expense,pink,sub,dark,Modifier.weight(1f))} }
-        item { Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Button(onClick=onAdd,modifier=Modifier.weight(1f),colors=ButtonDefaults.buttonColors(containerColor=violet)){Icon(Icons.Default.Add,null);Text("ثبت تراکنش")};OutlinedButton(onClick=onTransfer,modifier=Modifier.weight(1f)){Icon(Icons.Default.SwapHoriz,null);Text("انتقال وجه")} } }
-        item { Text("آخرین تراکنش‌ها",color=fg,fontSize=18.sp,fontWeight=FontWeight.Bold) }
-        if(txs.isEmpty()) item { GlassCard(dark=dark){Text("هنوز تراکنشی ثبت نشده است.",color=sub);Text("از دکمه ثبت تراکنش برای شروع استفاده کنید.",color=sub,fontSize=12.sp)} }
-        else items(txs,key={it.id}) { TxRow(it,fg,sub,dark) }
+    LazyColumn(
+        Modifier.fillMaxSize()
+            .padding(p)
+            .background(Brush.verticalGradient(if(dark) listOf(Color(0xFF18264D),Color(0xFF0B1022),Color(0xFF11172D)) else listOf(Color(0xFFE8ECFF),Color(0xFFF6F7FC))))
+            .padding(horizontal=18.dp),
+        contentPadding=PaddingValues(top=20.dp,bottom=30.dp),
+        verticalArrangement=Arrangement.spacedBy(16.dp)
+    ){
+        item {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("سلام، خوش آمدید",color=sub,fontSize=13.sp)
+                    Text("مدیریت مالی خانواده",color=fg,fontSize=24.sp,fontWeight=FontWeight.Bold)
+                    Text(jalali(System.currentTimeMillis()),color=sub,fontSize=12.sp)
+                }
+                Surface(shape=RoundedCornerShape(19.dp),color=if(dark) Color.White.copy(alpha=.10f) else Color.White.copy(alpha=.78f),border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.20f) else Color(0xFFDDE3F5))) {
+                    Icon(Icons.Default.AccountBalanceWallet,null,tint=if(dark)Color(0xFFD6D0FF) else violet,modifier=Modifier.padding(14.dp).size(27.dp))
+                }
+            }
+        }
+        item {
+            Card(
+                modifier=Modifier.fillMaxWidth().shadow(18.dp,RoundedCornerShape(30.dp)),
+                shape=RoundedCornerShape(30.dp),
+                colors=CardDefaults.cardColors(containerColor=Color.Transparent)
+            ){
+                Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF887BFF),Color(0xFF5657C9),Color(0xFF176F91)))).padding(22.dp)) {
+                    Box(Modifier.align(Alignment.TopEnd).size(142.dp).background(Color.White.copy(alpha=.075f),RoundedCornerShape(100.dp)))
+                    Box(Modifier.align(Alignment.BottomStart).size(86.dp).background(Color(0xFF70E4DB).copy(alpha=.10f),RoundedCornerShape(100.dp)))
+                    Column {
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Default.Wallet,null,tint=Color.White.copy(alpha=.92f),modifier=Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("موجودی کل خانواده",color=Color.White.copy(alpha=.90f),fontSize=14.sp,fontWeight=FontWeight.Medium)
+                        }
+                        Spacer(Modifier.height(17.dp))
+                        Text(money(balance),color=Color.White,fontSize=28.sp,fontWeight=FontWeight.Bold)
+                        Spacer(Modifier.height(18.dp))
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Surface(color=Color.White.copy(alpha=.16f),shape=RoundedCornerShape(50.dp)) {
+                                Row(Modifier.padding(horizontal=11.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Security,null,tint=Color.White,modifier=Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("نمای کلی تمام حساب‌ها",color=Color.White,fontSize=11.sp)
+                                }
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Icon(Icons.Default.TrendingUp,null,tint=Color.White.copy(alpha=.88f),modifier=Modifier.size(25.dp))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement=Arrangement.spacedBy(11.dp)) {
+                MetricCard("درآمد این ماه",income,aqua,sub,dark,Modifier.weight(1f))
+                MetricCard("هزینه این ماه",expense,pink,sub,dark,Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick=onAdd,modifier=Modifier.weight(1f).height(54.dp),
+                    shape=RoundedCornerShape(18.dp),
+                    colors=ButtonDefaults.buttonColors(containerColor=violet)
+                ) { Icon(Icons.Default.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت تراکنش",fontWeight=FontWeight.SemiBold) }
+                OutlinedButton(
+                    onClick=onTransfer,modifier=Modifier.weight(1f).height(54.dp),
+                    shape=RoundedCornerShape(18.dp),
+                    border=BorderStroke(1.dp,if(dark)Color.White.copy(alpha=.30f) else violet.copy(alpha=.35f)),
+                    colors=ButtonDefaults.outlinedButtonColors(contentColor=if(dark)Color.White else violet)
+                ) { Icon(Icons.Default.SwapHoriz,null);Spacer(Modifier.width(6.dp));Text("انتقال وجه",fontWeight=FontWeight.SemiBold) }
+            }
+        }
+        item {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Text("آخرین تراکنش‌ها",color=fg,fontSize=18.sp,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("۵ مورد اخیر",color=sub,fontSize=11.sp)
+            }
+        }
+        if(txs.isEmpty()) item {
+            GlassCard(dark=dark) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Icon(Icons.Default.ReceiptLong,null,tint=if(dark)Color(0xFFC4BDFF) else violet,modifier=Modifier.size(28.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("هنوز تراکنشی ثبت نشده است.",color=fg,fontWeight=FontWeight.SemiBold)
+                        Text("برای شروع، اولین درآمد یا هزینه را ثبت کنید.",color=sub,fontSize=12.sp)
+                    }
+                }
+            }
+        } else items(txs,key={it.id}) { TxRow(it,fg,sub,dark) }
     }
 }
 @Composable private fun MetricCard(title:String,value:Long,tint:Color,sub:Color,dark:Boolean,mod:Modifier){GlassCard(mod,dark){Text(title,color=sub,fontSize=12.sp);Spacer(Modifier.height(8.dp));Text(money(value),color=tint,fontSize=16.sp,fontWeight=FontWeight.Bold)}}
