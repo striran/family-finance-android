@@ -280,51 +280,62 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     val fg = if(dark) Color(0xFFF5F2F7) else Color(0xFF303039)
     val sub = if(dark) Color(0xFFB7ACBC) else Color(0xFF85838D)
     MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=Color(0xFFCEACE3),secondary=Color(0xFF73D7A5),background=midnight,surface=panel) else lightColorScheme(primary=violet,secondary=aqua,background=Color(0xFFF7F7F9),surface=Color.White,onSurface=Color(0xFF303039))) {
-        Scaffold(containerColor=bg, bottomBar={
-            Surface(
-                modifier=Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=9.dp,top=5.dp)
-                    .shadow(18.dp,RoundedCornerShape(28.dp))
-                    .border(1.dp,if(dark)Color.White.copy(alpha=.22f) else Color.White.copy(alpha=.95f),RoundedCornerShape(28.dp)),
-                shape=RoundedCornerShape(28.dp),
-                color=if(dark) Color(0xFF1B2A34).copy(alpha=.96f) else Color.White.copy(alpha=.88f),
-                tonalElevation=0.dp
-            ) {
-                NavigationBar(
-                    containerColor=Color.Transparent,
-                    tonalElevation=0.dp,
-                    windowInsets=WindowInsets(0,0,0,0),
-                    modifier=Modifier.height(72.dp)
-                ) {
-                    val labels=listOf("خانه","تراکنش","حساب‌ها","گزارش","بیشتر","اقساط","چک‌ها")
-                    val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,Icons.Default.BarChart,Icons.Default.MoreHoriz,Icons.Default.EventAvailable,Icons.Default.Description)
+        Scaffold(
+        containerColor=bg,
+        topBar={
+            Surface(color=if(dark)Color(0xFF392448) else violet,shadowElevation=2.dp){
+                Row(Modifier.fillMaxWidth().height(58.dp).padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically){
+                    IconButton(onClick={page=4}){Icon(Icons.Default.Menu,null,tint=Color.White)}
+                    Column(Modifier.weight(1f)){
+                        Text("مدیریت مالی خانواده",color=Color.White,fontSize=16.sp,fontWeight=FontWeight.Bold)
+                        Text("حسابداری شخصی و خانوادگی",color=Color.White.copy(alpha=.78f),fontSize=10.sp)
+                    }
+                    Icon(Icons.Default.AccountBalanceWallet,null,tint=Color.White.copy(alpha=.92f),modifier=Modifier.padding(end=8.dp).size(22.dp))
+                }
+            }
+        },
+        bottomBar={
+            Surface(color=if(dark)Color(0xFF261D2E) else Color.White,shadowElevation=10.dp){
+                NavigationBar(containerColor=Color.Transparent,tonalElevation=0.dp,windowInsets=WindowInsets(0,0,0,0),modifier=Modifier.height(64.dp)){
+                    val navPages=listOf(4,3,1,0)
+                    val labels=listOf("امکانات","گزارش‌ها","تراکنش‌ها","خانه")
+                    val icons=listOf(Icons.Default.GridView,Icons.Default.BarChart,Icons.Default.ReceiptLong,Icons.Default.Home)
                     labels.forEachIndexed { i,label ->
-                        NavigationBarItem(
-                            selected=page==i,onClick={page=i},
-                            icon={Icon(icons[i],null,modifier=Modifier.size(if(page==i)25.dp else 22.dp))},
-                            label={Text(label,fontSize=9.sp,fontWeight=if(page==i)FontWeight.Bold else FontWeight.Normal)},
+                        val selectedPage=page==navPages[i] || (i==0 && page in listOf(2,5,6))
+                        NavigationBarItem(selected=selectedPage,onClick={page=navPages[i]},
+                            icon={Icon(icons[i],null,modifier=Modifier.size(if(selectedPage)24.dp else 21.dp))},
+                            label={Text(label,fontSize=10.sp,fontWeight=if(selectedPage)FontWeight.Bold else FontWeight.Normal)},
                             colors=NavigationBarItemDefaults.colors(
-                                selectedIconColor=if(dark)Color.White else violet,
-                                selectedTextColor=if(dark)Color.White else violet,
-                                unselectedIconColor=if(dark)Color(0xFFB4C0BD) else Color(0xFF7C849D),
-                                unselectedTextColor=if(dark)Color(0xFFB4C0BD) else Color(0xFF7C849D),
-                                indicatorColor=if(dark)Color(0xFFB5D334).copy(alpha=.24f) else Color(0xFF718B1F).copy(alpha=.12f)
+                                selectedIconColor=if(dark)Color(0xFFE1C7F0) else violet,
+                                selectedTextColor=if(dark)Color(0xFFE1C7F0) else violet,
+                                unselectedIconColor=if(dark)Color(0xFFB8AABD) else Color(0xFF92909A),
+                                unselectedTextColor=if(dark)Color(0xFFB8AABD) else Color(0xFF92909A),
+                                indicatorColor=if(dark)Color(0xFF603D72) else Color(0xFFF1EAF5)
                             )
                         )
                     }
                 }
             }
-        }, floatingActionButton={ if(page==0||page==1||page==5||page==6) FloatingActionButton(onClick={dialog=when(page){5->"debt";6->"cheque";else->"transaction"}},containerColor=violet,contentColor=Color.White){Icon(Icons.Default.Add,null)} }) { pad ->
-            when(page) {
-                0 -> Dashboard(pad,balance,income,expense,txs.take(5),db.categoryTotals(),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
-                1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
-                2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
-                3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
-                4 -> MorePage(pad,goals,fg,sub,dark,{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport,onExportExcel,onExportPdf)
-                5 -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
-                else -> ChequesPage(pad,cheques,fg,sub,dark,{dialog="cheque"},{cheque,status->db.updateChequeStatus(cheque.id,status).also{if(it)refresh++}},{cheque->selectedCheque=cheque;dialog="deleteCheque"})
-            }
+        },
+        floatingActionButtonPosition=FabPosition.Center,
+        floatingActionButton={
+            if(page==0||page==1||page==5||page==6) FloatingActionButton(
+                onClick={dialog=when(page){5->"debt";6->"cheque";else->"transaction"}},
+                containerColor=Color(0xFF36B879),contentColor=Color.White,shape=RoundedCornerShape(50)
+            ){Icon(Icons.Default.Add,null)}
         }
-        when(dialog) {
+    ){ pad ->
+        when(page) {
+            0 -> Dashboard(pad,balance,income,expense,txs.take(5),db.categoryTotals(),fg,sub,dark,{dialog="transaction"},{dialog="transfer"})
+            1 -> TransactionsPage(pad,txs,fg,sub,dark,{selected=it;dialog="edit"},{selected=it;dialog="delete"})
+            2 -> AccountsPage(pad,accounts,fg,sub,dark,{dialog="member"},{dialog="account"},{dialog="transfer"})
+            3 -> ReportsPage(pad,income,expense,db.categoryTotals(),budgets,fg,sub,dark,{dialog="budget"},{ budget -> selectedBudget=budget; dialog="deleteBudget" })
+            4 -> MorePage(pad,goals,fg,sub,dark,{page=2},{page=5},{page=6},{dialog="goal"},{ goal -> selectedGoal=goal; dialog="contribute" },{ goal -> selectedGoal=goal; dialog="deleteGoal" },{dark=!dark;preferences.edit().putBoolean("dark_theme",dark).apply()},onExport,onImport,onExportExcel,onExportPdf)
+            5 -> DebtsPage(pad,debts,installmentsByDebt,receivables,recurringBills,overdueInstallments,upcomingInstallments,db.totalRemainingDebt(),db.totalPendingReceivables(),fg,sub,dark,{ installment -> selectedInstallment=installment; dialog="payDebt" },{ debt -> dialog="deleteDebt"; selectedDebt=debt },{ dialog="receivable" },{ receivable -> selectedReceivable=receivable; dialog="markReceived" },{ receivable -> selectedReceivable=receivable; dialog="deleteReceivable" },{dialog="recurringBill"},{bill->selectedRecurringBill=bill;dialog="payRecurringBill"},{bill->selectedRecurringBill=bill;dialog="deleteRecurringBill"})
+            else -> ChequesPage(pad,cheques,fg,sub,dark,{dialog="cheque"},{cheque,status->db.updateChequeStatus(cheque.id,status).also{if(it)refresh++}},{cheque->selectedCheque=cheque;dialog="deleteCheque"})
+        }
+    }
+    when(dialog) {
             "transaction" -> TransactionDialog(db,accounts,dark,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
             "edit" -> selected?.let { EditDialog(db,it,accounts,dark,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
             "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=if(dark) panel else Color(0xFFF8F9F5),title={Text("حذف تراکنش",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=Color.White) }},confirmButton={TextButton(onClick={if(db.deleteTransaction(it.id)){refresh++;dialog="";selected=null}else{Toast.makeText(context,"حذف انجام نشد؛ موجودی یا نوع تراکنش را بررسی کنید.",Toast.LENGTH_LONG).show()}}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
@@ -364,7 +375,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
     val pending=cheques.filter{it.status=="در انتظار"}
     val totalIn=pending.filter{it.type=="دریافتی"}.sumOf{it.amount}
     val totalOut=pending.filter{it.type=="پرداختی"}.sumOf{it.amount}
-    LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.verticalGradient(if(dark)listOf(Color(0xFF18264D),Color(0xFF0B1022))else listOf(Color(0xFFE8ECFF),Color(0xFFF6F7FC)))).padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=30.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(horizontal=16.dp),contentPadding=PaddingValues(top=18.dp,bottom=30.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item { ScreenHeading("مدیریت چک‌ها","چک‌های دریافتی و پرداختی و پیگیری سررسید",fg,sub,dark) }
         item { Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricCard("چک دریافتی",totalIn,aqua,sub,dark,Modifier.weight(1f));MetricCard("چک پرداختی",totalOut,pink,sub,dark,Modifier.weight(1f))} }
         item { Button(onClick=onAdd,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=violet)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(7.dp));Text("ثبت چک جدید")} }
@@ -562,7 +573,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
         val matchesType = filter=="همه" || t.type==filter
         matchesQuery && matchesType
     }
-    Column(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4)))).padding(16.dp)){
+    Column(Modifier.fillMaxSize().padding(p).background(if(dark)midnight else Color(0xFFF7F7F9)).padding(16.dp)){
         ScreenHeading("تراکنش‌ها","جست‌وجو و مدیریت گردش مالی",fg,sub,dark)
         Spacer(Modifier.height(10.dp))
         GlassCard(dark=dark) {
@@ -645,9 +656,16 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
         }
     }
 }
-@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit,onExportExcel:()->Unit,onExportPdf:()->Unit){
+@Composable private fun MorePage(p:PaddingValues,goals:List<SavingGoal>,fg:Color,sub:Color,dark:Boolean,onAccounts:()->Unit,onDebts:()->Unit,onCheques:()->Unit,onGoal:()->Unit,onContribute:(SavingGoal)->Unit,onDeleteGoal:(SavingGoal)->Unit,onTheme:()->Unit,onExport:()->Unit,onImport:()->Unit,onExportExcel:()->Unit,onExportPdf:()->Unit){
     LazyColumn(Modifier.fillMaxSize().padding(p).background(Brush.linearGradient(if(dark) listOf(Color(0xFF1B2A34),Color(0xFF101A24),Color(0xFF17242B)) else listOf(Color(0xFFF0F2EC),Color(0xFFF8F9F5),Color(0xFFE8EDE4)))).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-        item{ScreenHeading("امکانات بیشتر","تنظیمات و ابزارهای مدیریت خانواده",fg,sub,dark)}
+        item{ScreenHeading("امکانات بیشتر","مدیریت بخش‌های مالی و تنظیمات",fg,sub,dark)}
+        item{Text("بخش‌های اصلی",color=fg,fontWeight=FontWeight.Bold,fontSize=15.sp)}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+            GlassCard(Modifier.weight(1f).clickable(onClick=onAccounts),dark){Icon(Icons.Default.AccountBalance,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("حساب‌ها و اعضا",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+            GlassCard(Modifier.weight(1f).clickable(onClick=onDebts),dark){Icon(Icons.Default.EventAvailable,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("وام و اقساط",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+            GlassCard(Modifier.weight(1f).clickable(onClick=onCheques),dark){Icon(Icons.Default.Description,color=violet,contentDescription=null);Spacer(Modifier.height(7.dp));Text("مدیریت چک",color=fg,fontWeight=FontWeight.SemiBold,fontSize=12.sp)}
+        }}
+        item{GlassCard(dark=dark){Text("اعضای خانواده، حساب‌ها، وام‌ها، چک‌ها و سایر ابزارهای مالی از این بخش در دسترس هستند.",color=sub,fontSize=11.sp)}}
         item{GlassCard(dark=dark){Text("تنظیمات ظاهری",color=fg,fontWeight=FontWeight.Bold);TextButton(onClick=onTheme){Text(if(dark)"فعال‌کردن پوسته روشن" else "فعال‌کردن پوسته تاریک")}}}
         item{GlassCard(dark=dark){Text("پشتیبان‌گیری و بازیابی",color=fg,fontWeight=FontWeight.Bold);Text("فایل پشتیبان را در حافظه گوشی ذخیره یا بازیابی کنید.",color=sub,fontSize=12.sp);Row{TextButton(onClick=onExport){Text("تهیه پشتیبان")};TextButton(onClick=onImport){Text("بازیابی")}}}}
         item{GlassCard(dark=dark){Text("گزارش و خروجی",color=fg,fontWeight=FontWeight.Bold);Text("گزارش تراکنش‌ها را برای بایگانی یا بررسی در رایانه ذخیره کنید.",color=sub,fontSize=12.sp);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick=onExportExcel){Icon(Icons.Default.TableChart,null);Spacer(Modifier.width(4.dp));Text("خروجی Excel")};TextButton(onClick=onExportPdf){Icon(Icons.Default.PictureAsPdf,null);Spacer(Modifier.width(4.dp));Text("خروجی PDF")}}}}
