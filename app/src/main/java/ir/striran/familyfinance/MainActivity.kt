@@ -19,6 +19,8 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -238,8 +240,8 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
             }
         }
         when(dialog) {
-            "transaction" -> TransactionDialog(accounts,dark,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
-            "edit" -> selected?.let { EditDialog(it,accounts,dark,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
+            "transaction" -> TransactionDialog(db,accounts,dark,onDismiss={dialog=""},onSave={a,t,c,v,n->db.addTransaction(a,t,c,v,n).also{if(it)refresh++}})
+            "edit" -> selected?.let { EditDialog(db,it,accounts,dark,onDismiss={dialog="";selected=null},onSave={a,t,c,v,n->db.updateTransaction(it.id,a,t,c,v,n).also{ok->if(ok)refresh++}}) }
             "delete" -> selected?.let { AlertDialog(onDismissRequest={dialog="";selected=null},containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text("حذف تراکنش",color=Color.White)},text={GlassDialogBody(dark=dark) { Text("این تراکنش حذف و موجودی حساب اصلاح شود؟",color=Color.White) }},confirmButton={TextButton(onClick={if(db.deleteTransaction(it.id)){refresh++;dialog="";selected=null}else{Toast.makeText(context,"حذف انجام نشد؛ موجودی یا نوع تراکنش را بررسی کنید.",Toast.LENGTH_LONG).show()}}){Text("حذف")}},dismissButton={TextButton(onClick={dialog="";selected=null}){Text("انصراف")}}) }
             "transfer" -> TransferDialog(accounts,dark,onDismiss={dialog=""},onSave={a,b,v,n->db.transfer(a,b,v,n).also{if(it)refresh++}})
             "member" -> SimpleNameDialog("افزودن عضو خانواده","نام عضو",dark,onDismiss={dialog=""},onSave={db.addMember(it).also{ok->if(ok)refresh++}})
@@ -685,29 +687,54 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit) 
     }
 }
 
-@Composable private fun TransactionDialog(accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ثبت تراکنش",null,accounts,dark,onDismiss,onSave)
-@Composable private fun EditDialog(t:FinanceTransaction,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm("ویرایش تراکنش",t,accounts,dark,onDismiss,onSave)
-@Composable private fun TransactionForm(title:String,existing:FinanceTransaction?,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean){
+@Composable private fun TransactionDialog(db:FinanceDatabase,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm(db,"ثبت تراکنش",null,accounts,dark,onDismiss,onSave)
+@Composable private fun EditDialog(db:FinanceDatabase,t:FinanceTransaction,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean)=TransactionForm(db,"ویرایش تراکنش",t,accounts,dark,onDismiss,onSave)
+@Composable private fun TransactionForm(db:FinanceDatabase,title:String,existing:FinanceTransaction?,accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,String,String,Long,String)->Boolean){
     var type by remember{mutableStateOf(existing?.type?:"هزینه")}
     var category by remember{mutableStateOf(existing?.category?:"خرید روزانه")}
     var amount by remember{mutableStateOf(existing?.amount?.let { formatAmount(it.toString()) }?:"")}
     var note by remember{mutableStateOf(existing?.note?:"")}
     var account by remember{mutableStateOf(existing?.accountId?:accounts.firstOrNull()?.id?:0L)}
     var error by remember{mutableStateOf(false)}
+    var showAddCategory by remember { mutableStateOf(false) }
+    var newCategory by remember { mutableStateOf("") }
+    var categoryError by remember { mutableStateOf(false) }
+    val categoryOptions = remember(type) { db.categories(type) }
     AlertDialog(onDismissRequest=onDismiss,containerColor=if(dark) panel else Color(0xFFF7F8FF),title={Text(title,color=Color.White)},
         text={GlassDialogBody(dark=dark) {
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Row { FilterChip(type=="درآمد",{type="درآمد"},{Text("درآمد")}); Spacer(Modifier.width(8.dp)); FilterChip(type=="هزینه",{type="هزینه"},{Text("هزینه")}) }
+                Row { FilterChip(type=="درآمد",{type="درآمد";category=db.categories("درآمد").firstOrNull().orEmpty()},{Text("درآمد")}); Spacer(Modifier.width(8.dp)); FilterChip(type=="هزینه",{type="هزینه";category=db.categories("هزینه").firstOrNull().orEmpty()},{Text("هزینه")}) }
                 Text("حساب",color=muted)
                 accounts.forEach{a->FilterChip(account==a.id,{account=a.id},{Text("${a.memberName} · ${a.name}")})}
                 OutText(amount,{amount=formatAmount(it);error=false},"مبلغ به تومان",numeric=true)
-                OutText(category,{category=it;error=false},"دسته‌بندی")
+                Text("انتخاب دسته‌بندی",color=muted,fontWeight=FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                    categoryOptions.forEach { item -> FilterChip(selected=category==item,onClick={category=item},label={Text(item)}) }
+                }
+                OutlinedButton(onClick={showAddCategory=true},modifier=Modifier.fillMaxWidth()) { Icon(Icons.Default.Add,null); Spacer(Modifier.width(6.dp)); Text("افزودن دسته‌بندی جدید") }
+                OutText(category,{category=it;error=false},"یا نام دسته‌بندی را دستی وارد کنید")
                 OutText(note,{note=it},"توضیحات (اختیاری)")
                 if(error) Text("اطلاعات واردشده معتبر نیست یا موجودی کافی نیست.",color=pink)
             }
         }},
         confirmButton={TextButton(onClick={val v=parseAmount(amount);if(v!=null&&v>0&&accounts.any{it.id==account}&&onSave(account,type,category,v,note))onDismiss() else error=true}){Text("ذخیره")}},
         dismissButton={TextButton(onClick=onDismiss){Text("انصراف")}})
+    if(showAddCategory) AlertDialog(
+        onDismissRequest={showAddCategory=false;newCategory="";categoryError=false},
+        containerColor=if(dark)panel else Color(0xFFF7F8FF),
+        title={Text("افزودن دسته‌بندی $type",color=Color.White)},
+        text={GlassDialogBody(dark=dark) {
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutText(newCategory,{newCategory=it;categoryError=false},"نام دسته‌بندی جدید")
+                if(categoryError) Text("نام تکراری یا نامعتبر است.",color=pink)
+            }
+        }},
+        confirmButton={TextButton(onClick={
+            if(db.addCategory(type,newCategory)){category=newCategory.trim();showAddCategory=false;newCategory=""}
+            else categoryError=true
+        }){Text("افزودن")}},
+        dismissButton={TextButton(onClick={showAddCategory=false}){Text("انصراف")}}
+    )
 }
 @Composable private fun TransferDialog(accounts:List<FinanceAccount>,dark:Boolean,onDismiss:()->Unit,onSave:(Long,Long,Long,String)->Boolean){
     var from by remember{mutableStateOf(accounts.firstOrNull()?.id?:0L)}
