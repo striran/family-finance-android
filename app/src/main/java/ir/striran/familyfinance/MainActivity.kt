@@ -284,7 +284,7 @@ fun FinanceApp(db: FinanceDatabase, onExport: () -> Unit, onImport: () -> Unit, 
         containerColor=bg,
         topBar={
             Surface(color=Color.Transparent,shadowElevation=0.dp){
-                Row(Modifier.fillMaxWidth().height(66.dp).background(Brush.linearGradient(if(dark) listOf(Color(0xFF11152F),Color(0xFF3C185B),Color(0xFF17152F)) else listOf(Color(0xFF08A9C6),Color(0xFF48C9D7),Color(0xFFFFA24A))).padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
+                Row(Modifier.fillMaxWidth().height(66.dp).background(Brush.linearGradient(if(dark) listOf(Color(0xFF11152F),Color(0xFF3C185B),Color(0xFF17152F)) else listOf(Color(0xFF08A9C6),Color(0xFF48C9D7),Color(0xFFFFA24A)))).padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
                     IconButton(onClick={page=4}){Icon(Icons.Default.Menu,null,tint=Color.White)}
                     Column(Modifier.weight(1f)){
                         Text("مدیریت مالی خانواده",color=Color.White,fontSize=16.sp,fontWeight=FontWeight.Bold)
